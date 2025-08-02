@@ -36,6 +36,10 @@ export default {
 					DEFAULT: 'hsl(var(--destructive))',
 					foreground: 'hsl(var(--destructive-foreground))'
 				},
+				success: {
+					DEFAULT: 'hsl(var(--success))',
+					foreground: 'hsl(var(--success-foreground))'
+				},
 				muted: {
 					DEFAULT: 'hsl(var(--muted))',
 					foreground: 'hsl(var(--muted-foreground))'
@@ -61,7 +65,24 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				flowmatic: {
+					'dark-blue': 'hsl(var(--flowmatic-dark-blue))',
+					'medium-blue': 'hsl(var(--flowmatic-medium-blue))',
+					'teal': 'hsl(var(--flowmatic-teal))',
+					'green': 'hsl(var(--flowmatic-green))'
 				}
+			},
+			backgroundImage: {
+				'gradient-flowmatic': 'var(--gradient-flowmatic)',
+				'gradient-subtle': 'var(--gradient-subtle)'
+			},
+			boxShadow: {
+				'flowmatic': 'var(--shadow-flowmatic)',
+				'glow': 'var(--shadow-glow)'
+			},
+			transitionProperty: {
+				'smooth': 'var(--transition-smooth)'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

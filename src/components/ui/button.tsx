@@ -18,6 +18,9 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        flowmatic: "bg-gradient-flowmatic text-white shadow-flowmatic hover:shadow-glow transform hover:scale-105 transition-all duration-300",
+        success: "bg-success text-success-foreground shadow-sm hover:bg-success/90",
+        teal: "bg-accent text-accent-foreground shadow-sm hover:bg-accent/90 hover:shadow-glow transition-all duration-300"
       },
       size: {
         default: "h-10 px-4 py-2",
