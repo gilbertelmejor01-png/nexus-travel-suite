@@ -9,6 +9,7 @@ import { Layout } from "@/components/Layout";
 
 // Pages
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import AIInteraction from "./pages/AIInteraction";
 import Analytics from "./pages/Analytics";
@@ -28,6 +29,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Layout><Dashboard /></Layout>} />
           <Route path="/ai-interaction" element={<Layout><AIInteraction /></Layout>} />

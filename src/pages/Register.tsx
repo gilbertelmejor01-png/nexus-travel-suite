@@ -1,21 +1,31 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { Mail, Lock, Eye, EyeOff, Loader2, Check } from "lucide-react";
+import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { Mail, Lock, Eye, EyeOff, Loader2, Check, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { auth, db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 
-const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+const Register = () => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: ""
+  });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ 
+    name?: string; 
+    email?: string; 
+    password?: string; 
+    confirmPassword?: string 
+  }>({});
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,32 +39,52 @@ const Login = () => {
     return password.length >= 8;
   };
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setEmail(value);
+  const validateName = (name: string) => {
+    return name.trim().length >= 2;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
     
-    if (value && !validateEmail(value)) {
+    // Validaciones en tiempo real
+    if (field === "name" && value && !validateName(value)) {
+      setErrors(prev => ({ ...prev, name: "El nombre debe tener al menos 2 caracteres" }));
+    } else if (field === "email" && value && !validateEmail(value)) {
       setErrors(prev => ({ ...prev, email: "Formato de email inválido" }));
+    } else if (field === "password" && value && !validatePassword(value)) {
+      setErrors(prev => ({ ...prev, password: "La contraseña debe tener al menos 8 caracteres" }));
+    } else if (field === "confirmPassword" && value && value !== formData.password) {
+      setErrors(prev => ({ ...prev, confirmPassword: "Las contraseñas no coinciden" }));
     } else {
-      setErrors(prev => ({ ...prev, email: undefined }));
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setPassword(value);
-    
-    if (value && !validatePassword(value)) {
-      setErrors(prev => ({ ...prev, password: "La contraseña debe tener al menos 8 caracteres" }));
-    } else {
-      setErrors(prev => ({ ...prev, password: undefined }));
+  const createUserDocument = async (user: any, additionalData: { name?: string } = {}) => {
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        email: user.email,
+        name: additionalData.name || user.displayName || "",
+        rol: "user",
+        preferencias: {
+          idioma: "es",
+          moneda: "EUR"
+        },
+        fecha_creacion: new Date(),
+        ultimo_login: new Date(),
+        ...additionalData
+      });
+    } catch (error) {
+      console.error("Error creating user document:", error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateEmail(email) || !validatePassword(password)) {
+    const { name, email, password, confirmPassword } = formData;
+    
+    if (!validateName(name) || !validateEmail(email) || !validatePassword(password) || password !== confirmPassword) {
       toast({
         title: "Error de validación",
         description: "Por favor corrige los errores antes de continuar",
@@ -66,43 +96,26 @@ const Login = () => {
     setLoading(true);
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await createUserDocument(userCredential.user, { name });
+      
       toast({
-        title: "¡Bienvenido!",
-        description: "Has iniciado sesión correctamente",
+        title: "¡Cuenta creada!",
+        description: "Tu cuenta ha sido creada exitosamente",
       });
       navigate("/dashboard");
     } catch (error: any) {
+      let errorMessage = "Error al crear la cuenta";
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "Este email ya está registrado";
+      }
       toast({
-        title: "Error de autenticación",
-        description: "Email o contraseña incorrectos",
+        title: "Error de registro",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const createUserDocument = async (user: any) => {
-    try {
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-      
-      if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-          email: user.email,
-          name: user.displayName || "",
-          rol: "user",
-          preferencias: {
-            idioma: "es",
-            moneda: "EUR"
-          },
-          fecha_creacion: new Date(),
-          ultimo_login: new Date()
-        });
-      }
-    } catch (error) {
-      console.error("Error creating user document:", error);
     }
   };
 
@@ -130,8 +143,10 @@ const Login = () => {
     }
   };
 
-  const isEmailValid = email && validateEmail(email);
-  const isPasswordValid = password && validatePassword(password);
+  const isNameValid = formData.name && validateName(formData.name);
+  const isEmailValid = formData.email && validateEmail(formData.email);
+  const isPasswordValid = formData.password && validatePassword(formData.password);
+  const isConfirmPasswordValid = formData.confirmPassword && formData.confirmPassword === formData.password;
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-4">
@@ -142,7 +157,7 @@ const Login = () => {
             <span className="text-2xl font-bold text-white">✈️</span>
           </div>
           <h1 className="text-2xl font-bold text-foreground">Flowmatic Travel</h1>
-          <p className="text-muted-foreground">Gestión inteligente de presupuestos</p>
+          <p className="text-muted-foreground">Crea tu cuenta para comenzar</p>
         </div>
 
         <Card className="shadow-flowmatic border-0">
@@ -179,19 +194,44 @@ const Login = () => {
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">O inicia sesión con email</span>
+                <span className="bg-background px-2 text-muted-foreground">O registrarse con email</span>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Name Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nombre completo</label>
+                <Input
+                  type="text"
+                  placeholder="Tu nombre completo"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  icon={<User className="h-4 w-4" />}
+                  iconPosition="left"
+                  error={!!errors.name}
+                  success={isNameValid}
+                  className="transition-all duration-300"
+                />
+                {isNameValid && (
+                  <div className="flex items-center gap-2 text-success text-sm">
+                    <Check className="h-4 w-4" />
+                    <span>Nombre válido</span>
+                  </div>
+                )}
+                {errors.name && (
+                  <p className="text-destructive text-sm">{errors.name}</p>
+                )}
+              </div>
+
               {/* Email Field */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Email</label>
                 <Input
                   type="email"
                   placeholder="tu@email.com"
-                  value={email}
-                  onChange={handleEmailChange}
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
                   icon={<Mail className="h-4 w-4" />}
                   iconPosition="left"
                   error={!!errors.email}
@@ -216,8 +256,8 @@ const Login = () => {
                   <Input
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    value={password}
-                    onChange={handlePasswordChange}
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
                     icon={<Lock className="h-4 w-4" />}
                     iconPosition="left"
                     error={!!errors.password}
@@ -237,21 +277,49 @@ const Login = () => {
                 )}
               </div>
 
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Confirmar contraseña</label>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={formData.confirmPassword}
+                    onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                    icon={<Lock className="h-4 w-4" />}
+                    iconPosition="left"
+                    error={!!errors.confirmPassword}
+                    success={isConfirmPasswordValid}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="text-destructive text-sm">{errors.confirmPassword}</p>
+                )}
+              </div>
+
               {/* Submit Button */}
               <Button
                 type="submit"
                 variant="flowmatic"
                 size="lg"
                 className="w-full"
-                disabled={loading || !isEmailValid || !isPasswordValid}
+                disabled={loading || !isNameValid || !isEmailValid || !isPasswordValid || !isConfirmPasswordValid}
               >
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Iniciando sesión...
+                    Creando cuenta...
                   </>
                 ) : (
-                  "Acceder"
+                  "Crear cuenta"
                 )}
               </Button>
             </form>
@@ -259,9 +327,9 @@ const Login = () => {
         </Card>
 
         <div className="text-center mt-6 text-sm text-muted-foreground">
-          ¿No tienes cuenta?{" "}
-          <Link to="/register" className="text-flowmatic-teal hover:text-flowmatic-green font-medium">
-            Regístrate aquí
+          ¿Ya tienes cuenta?{" "}
+          <Link to="/login" className="text-flowmatic-teal hover:text-flowmatic-green font-medium">
+            Inicia sesión aquí
           </Link>
         </div>
       </div>
@@ -269,4 +337,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;
