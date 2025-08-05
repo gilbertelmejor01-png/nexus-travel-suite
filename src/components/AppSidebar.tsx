@@ -8,6 +8,7 @@ import {
   TrendingUp, 
   Plane, 
   History, 
+  User, 
   Eye, 
   LogOut,
   ChevronLeft,
@@ -31,10 +32,11 @@ import { useToast } from "@/hooks/use-toast";
 
 const navigationItems = [
   { title: "Resumen Ejecutivo", url: "/dashboard", icon: Home },
-  { title: "Interacción con AI", url: "/ai-interaction", icon: Bot },
+  { title: "Procesar  con AI", url: "/ai-interaction", icon: Bot },
   { title: "Dashboard Analítico", url: "/analytics", icon: BarChart3 },
   { title: "Comparaciones Avanzadas", url: "/comparisons", icon: TrendingUp },
-  { title: "Creación Manual", url: "/manual-creation", icon: Plane },
+  { title: "cliente", url: "/cliente", icon: User },
+  { title: "Creación intinerario", url: "/manual-creation", icon: Plane },
   { title: "Historial Unificado", url: "/history", icon: History },
   { title: "Previsualización", url: "/preview", icon: Eye },
 ];

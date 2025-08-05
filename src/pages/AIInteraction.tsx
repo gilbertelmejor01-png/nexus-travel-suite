@@ -7,11 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useDropzone } from "react-dropzone";
-import { 
-  Upload, 
-  FileText, 
-  Image, 
-  Sheet, 
+import {
+  Upload,
+  FileText,
+  Image,
+  Sheet,
   MessageSquare,
   Sparkles,
   Loader2,
@@ -19,7 +19,7 @@ import {
   Mail,
   Plane,
   Edit3,
-  Send
+  Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,55 +41,154 @@ const AIInteraction = () => {
   const [connected, setConnected] = useState(false);
   const { toast } = useToast();
 
-  // Mock de procesamiento
+  // Procesamiento con envío de PDF al webhook
   const simulateProcessing = async () => {
     setProcessing(true);
     setProgress(0);
-    
-    const steps = [
-      { message: "Analizando documentos...", progress: 25 },
-      { message: "Extrayendo datos...", progress: 60 },
-      { message: "Estructurando información...", progress: 85 },
-      { message: "¡Listo!", progress: 100 }
-    ];
 
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress(step.progress);
-      
-      if (step.progress === 100) {
-        // Mock data
-        setProcessedData([
-          { destino: "París", fechas: "15-20 Jun 2024", hotel: "Hotel Luxe", coste: 1250 },
-          { destino: "Roma", fechas: "22-25 Jun 2024", hotel: "Grand Hotel", coste: 890 },
-        ]);
+    try {
+      // Solo procesar si hay archivos PDF en el tab de PDF
+      if (activeTab === "pdf" && files.length > 0) {
+        // Filtrar solo archivos PDF
+        const pdfFiles = files.filter(
+          (file) => file.type === "application/pdf"
+        );
+
+        if (pdfFiles.length > 0) {
+          const steps = [
+            { message: "Analizando documentos...", progress: 25 },
+            { message: "Enviando PDF al webhook...", progress: 60 },
+            { message: "Procesando respuesta...", progress: 85 },
+            { message: "¡Listo!", progress: 100 },
+          ];
+
+          for (const step of steps) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+            setProgress(step.progress);
+
+            // Enviar PDF al webhook cuando llegue al 60%
+            if (step.progress === 60) {
+              try {
+                const formData = new FormData();
+                // Enviar solo el primer PDF (o todos si quieres)
+                formData.append("pdf", pdfFiles[0]);
+
+                const response = await fetch(
+                  "https://appn8napp.flowmaticn8n.us/webhook-test/b297050f-24cc-4da3-a4ab-d9bc5515d560",
+                  {
+                    method: "POST",
+                    body: formData,
+                  }
+                );
+
+                if (!response.ok) {
+                  throw new Error("Error al enviar el PDF al webhook");
+                }
+              } catch (error) {
+                console.error("Error enviando PDF:", error);
+                throw error;
+              }
+            }
+
+            if (step.progress === 100) {
+              // Mock data
+              setProcessedData([
+                {
+                  destino: "París",
+                  fechas: "15-20 Jun 2024",
+                  hotel: "Hotel Luxe",
+                  coste: 1250,
+                },
+                {
+                  destino: "Roma",
+                  fechas: "22-25 Jun 2024",
+                  hotel: "Grand Hotel",
+                  coste: 890,
+                },
+              ]);
+            }
+          }
+
+          setProcessing(false);
+          toast({
+            title: "Procesamiento completado",
+            description: "El PDF ha sido enviado y procesado exitosamente",
+          });
+        } else {
+          setProcessing(false);
+          toast({
+            title: "Error",
+            description: "No se encontraron archivos PDF para procesar",
+            variant: "destructive",
+          });
+        }
+      } else {
+        // Para otros tabs o sin archivos, mantener comportamiento original
+        const steps = [
+          { message: "Analizando documentos...", progress: 25 },
+          { message: "Extrayendo datos...", progress: 60 },
+          { message: "Estructurando información...", progress: 85 },
+          { message: "¡Listo!", progress: 100 },
+        ];
+
+        for (const step of steps) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          setProgress(step.progress);
+
+          if (step.progress === 100) {
+            // Mock data
+            setProcessedData([
+              {
+                destino: "París",
+                fechas: "15-20 Jun 2024",
+                hotel: "Hotel Luxe",
+                coste: 1250,
+              },
+              {
+                destino: "Roma",
+                fechas: "22-25 Jun 2024",
+                hotel: "Grand Hotel",
+                coste: 890,
+              },
+            ]);
+          }
+        }
+
+        setProcessing(false);
+        toast({
+          title: "Procesamiento completado",
+          description: "Los datos han sido extraídos exitosamente",
+        });
       }
+    } catch (error) {
+      setProcessing(false);
+      console.error("Error en el procesamiento:", error);
+      toast({
+        title: "Error en el procesamiento",
+        description:
+          "Hubo un problema al procesar el archivo. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
     }
-    
-    setProcessing(false);
-    toast({
-      title: "Procesamiento completado",
-      description: "Los datos han sido extraídos exitosamente"
-    });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: {
-      'application/pdf': ['.pdf'],
-      'image/*': ['.png', '.jpg', '.jpeg']
+      "application/pdf": [".pdf"],
+      "image/*": [".png", ".jpg", ".jpeg"],
     },
     maxFiles: 5,
     onDrop: (acceptedFiles) => {
-      setFiles(prev => [...prev, ...acceptedFiles]);
+      setFiles((prev) => [...prev, ...acceptedFiles]);
       toast({
         title: "Archivos agregados",
-        description: `${acceptedFiles.length} archivo(s) agregado(s)`
+        description: `${acceptedFiles.length} archivo(s) agregado(s)`,
       });
-    }
+    },
   });
 
   const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const optimizeDescription = () => {
@@ -97,7 +196,7 @@ const AIInteraction = () => {
     setTextDescription(optimized);
     toast({
       title: "Descripción optimizada",
-      description: "La IA ha mejorado tu descripción"
+      description: "La IA ha mejorado tu descripción",
     });
   };
 
@@ -105,8 +204,12 @@ const AIInteraction = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Interacción con IA</h1>
-        <p className="text-muted-foreground">Procesa información de viajes usando inteligencia artificial</p>
+        <h1 className="text-3xl font-bold text-foreground">
+          Interacción con IA
+        </h1>
+        <p className="text-muted-foreground">
+          Procesa información de viajes usando inteligencia artificial
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -139,15 +242,17 @@ const AIInteraction = () => {
               <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                  isDragActive 
-                    ? 'border-flowmatic-teal bg-flowmatic-teal/5' 
-                    : 'border-muted-foreground/25 hover:border-flowmatic-teal/50'
+                  isDragActive
+                    ? "border-flowmatic-teal bg-flowmatic-teal/5"
+                    : "border-muted-foreground/25 hover:border-flowmatic-teal/50"
                 }`}
               >
                 <input {...getInputProps()} />
                 <Upload className="h-12 w-12 mx-auto mb-4 text-flowmatic-teal" />
                 <p className="text-lg font-medium mb-2">
-                  {isDragActive ? 'Suelta los archivos aquí' : 'Arrastra archivos o haz clic'}
+                  {isDragActive
+                    ? "Suelta los archivos aquí"
+                    : "Arrastra archivos o haz clic"}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Límite: 5 archivos (PDF, JPG, PNG) - Máx. 10MB cada uno
@@ -159,7 +264,10 @@ const AIInteraction = () => {
                 <div className="mt-4 space-y-2">
                   <h4 className="font-medium">Archivos seleccionados:</h4>
                   {files.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                    >
                       <div className="flex items-center gap-3">
                         <FileText className="h-4 w-4 text-flowmatic-teal" />
                         <span className="text-sm">{file.name}</span>
@@ -167,9 +275,9 @@ const AIInteraction = () => {
                           {(file.size / 1024 / 1024).toFixed(1)} MB
                         </Badge>
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => removeFile(index)}
                       >
                         <X className="h-4 w-4" />
@@ -207,7 +315,9 @@ const AIInteraction = () => {
                 <input {...getInputProps()} />
                 <Image className="h-8 w-8 mx-auto mb-2 text-flowmatic-teal" />
                 <p className="font-medium">Subir imágenes de emails</p>
-                <p className="text-xs text-muted-foreground">Solo imágenes claras de emails</p>
+                <p className="text-xs text-muted-foreground">
+                  Solo imágenes claras de emails
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -225,10 +335,11 @@ const AIInteraction = () => {
                   <Sheet className="h-16 w-16 mx-auto mb-4 text-flowmatic-teal" />
                   <h3 className="font-medium mb-2">Conectar Google Sheets</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Autoriza el acceso para importar datos de tus hojas de cálculo
+                    Autoriza el acceso para importar datos de tus hojas de
+                    cálculo
                   </p>
-                  <Button 
-                    variant="flowmatic" 
+                  <Button
+                    variant="flowmatic"
                     onClick={() => setConnected(true)}
                   >
                     Conectar con Google
@@ -241,7 +352,9 @@ const AIInteraction = () => {
                     <span className="text-sm">Conectado exitosamente</span>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Seleccionar hoja</label>
+                    <label className="text-sm font-medium">
+                      Seleccionar hoja
+                    </label>
                     <select className="w-full p-2 border rounded-md">
                       <option>Presupuestos 2024</option>
                       <option>Clientes Principales</option>
@@ -271,8 +384,8 @@ const AIInteraction = () => {
                   className="mt-2"
                 />
               </div>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={optimizeDescription}
                 className="w-full"
               >
@@ -286,9 +399,9 @@ const AIInteraction = () => {
 
       {/* Process Button */}
       <div className="flex justify-center">
-        <Button 
-          variant="flowmatic" 
-          size="lg" 
+        <Button
+          variant="flowmatic"
+          size="lg"
           onClick={simulateProcessing}
           disabled={processing || (activeTab === "pdf" && files.length === 0)}
           className="min-w-48"
@@ -314,7 +427,9 @@ const AIInteraction = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Procesando datos...</span>
-                <span className="text-sm text-muted-foreground">{progress}%</span>
+                <span className="text-sm text-muted-foreground">
+                  {progress}%
+                </span>
               </div>
               <Progress value={progress} className="h-2" />
             </div>
