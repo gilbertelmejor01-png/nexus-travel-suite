@@ -22,6 +22,7 @@ import {
   Send,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { db, auth } from "@/lib/firebase";
 
 interface ProcessedData {
   destino: string;
@@ -374,6 +375,15 @@ const AIInteraction = () => {
               <CardTitle>Descripción en Texto Natural</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Información de Firebase</label>
+                <div className="border rounded-md p-3 bg-muted/30 min-h-[80px]">
+                  <p className="text-sm text-muted-foreground">
+                    Aquí se mostrará la información traída de Firebase...
+                  </p>
+                </div>
+              </div>
+              
               <div>
                 <label className="text-sm font-medium">Describe el viaje</label>
                 <Textarea
