@@ -26,6 +26,7 @@ import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import Modal2 from "../components/Modal2";
 import Previa, { VoyageData } from "../components/Previa";
+import Modal from "../components/Modal";
 
 interface ProcessedData {
   destino: string;
@@ -52,6 +53,9 @@ const AIInteraction = () => {
   const [ciudadesItinerario, setCiudadesItinerario] = useState<CiudadBloque[]>(
     []
   );
+  const [modalOpen, setModalOpen] = useState(false);
+  const [paisOrigen, setPaisOrigen] = useState("");
+  const [imagenOrigen, setImagenOrigen] = useState<File | null>(null);
 
   // Función para obtener datos de la conversación desde Firestore
   // Modifica fetchConversacionData para obtener los datos estructurados
@@ -535,16 +539,27 @@ const AIInteraction = () => {
           </TabsTrigger>
         </TabsList>
 
-        <Button onClick={() => setItineraryModalOpen(true)}>
-          Crear Nuevo Itinerario
-        </Button>
-
+        <div>
+          <Button onClick={() => setItineraryModalOpen(true)}>
+            Crear Nuevo Itinerario
+          </Button>
+          <Button onClick={() => setModalOpen(true)}>Agregar imagen</Button>
+        </div>
         <Modal2
           isOpen={itineraryModalOpen}
           onClose={() => setItineraryModalOpen(false)}
           onSave={(pais, ciudades) => {
             setPaisDestino(pais);
             setCiudadesItinerario(ciudades);
+          }}
+        />
+
+        <Modal
+          isOpen={modalOpen}
+          onClose={() => setModalOpen(false)}
+          onSave={(country, image) => {
+            setPaisOrigen(country);
+            setImagenOrigen(image);
           }}
         />
 
