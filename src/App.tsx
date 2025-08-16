@@ -19,6 +19,7 @@ import History from "./pages/History";
 import Preview from "./pages/Preview";
 import NotFound from "./pages/NotFound";
 
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -38,6 +39,7 @@ const App = () => (
           <Route path="/manual-creation" element={<Layout><ManualCreation /></Layout>} />
           <Route path="/history" element={<Layout><History /></Layout>} />
           <Route path="/preview" element={<Layout><Preview /></Layout>} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

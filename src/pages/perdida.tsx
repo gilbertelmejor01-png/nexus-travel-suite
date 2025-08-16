@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { db, auth } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import Modal2 from "../components/Modal2";
-import Previa, { VoyageData } from "../components/Previa";
 
 interface ProcessedData {
   destino: string;
@@ -44,175 +42,7 @@ const AIInteraction = () => {
   const [processedData, setProcessedData] = useState<ProcessedData[]>([]);
   const [connected, setConnected] = useState(false);
   const [n8nResponse, setN8nResponse] = useState<string>("");
-  const [conversacionData, setConversacionData] = useState<string>("");
-  const [voyageData, setVoyageData] = useState<VoyageData | null>(null);
   const { toast } = useToast();
-  const [itineraryModalOpen, setItineraryModalOpen] = useState(false);
-  const [paisDestino, setPaisDestino] = useState("");
-  const [ciudadesItinerario, setCiudadesItinerario] = useState<CiudadBloque[]>(
-    []
-  );
-
-  // Función para obtener datos de la conversación desde Firestore
-  // Modifica fetchConversacionData para obtener los datos estructurados
-  const fetchConversacionData = async () => {
-    console.log("🔄 Iniciando fetchConversacionData...");
-    try {
-      console.log("📡 Conectando a Firebase...");
-      const conversacionDoc = await getDoc(
-        doc(db, "conversacion", "xvbV2piJNxukwOUWODPk")
-      );
-      console.log("📄 Documento obtenido, existe:", conversacionDoc.exists());
-      if (conversacionDoc.exists()) {
-        const data = conversacionDoc.data();
-        console.log("Datos de conversación obtenidos:", data);
-        console.log("Estructura de data:", {
-          hasOutput: !!data.output,
-          outputType: typeof data.output,
-          dataKeys: Object.keys(data),
-          rawData: data
-        });
-        
-        // Convertir los datos al formato VoyageData
-        try {
-          let parsedData: VoyageData | null = null;
-          
-          // Verificar si los datos tienen la estructura de Firestore con fields
-          if (data.fields) {
-            console.log("Parseando estructura de Firestore con fields");
-            
-            // Extraer datos de la estructura de Firestore
-            const extractStringValue = (field: any) => field?.stringValue || '';
-            const extractArrayValue = (field: any) => {
-              try {
-                return JSON.parse(field?.stringValue || '[]');
-              } catch {
-                return [];
-              }
-            };
-            
-            parsedData = {
-              pays_destination: extractStringValue(data.fields.pays_destination),
-              programme_detaille: extractStringValue(data.fields.programme_detaille),
-              prix_par_personne: extractStringValue(data.fields.prix_par_personne),
-              chambre_simple: extractStringValue(data.fields.chambre_simple),
-              remarques_tarifs: extractStringValue(data.fields.remarques_tarifs),
-              inclus: extractArrayValue(data.fields.inclus),
-              non_inclus: extractArrayValue(data.fields.non_inclus),
-              table_itineraire_bref: extractArrayValue(data.fields.table_itineraire_bref)
-            };
-            
-            console.log("Datos extraídos de Firestore:", parsedData);
-          }
-          // Intentar diferentes estructuras de datos como fallback
-          else if (typeof data.output === "string") {
-            console.log("Parseando data.output como string");
-            parsedData = JSON.parse(data.output);
-          } else if (data.output && typeof data.output === "object") {
-            console.log("Usando data.output como objeto");
-            parsedData = data.output as VoyageData;
-          } else if (data.response && typeof data.response === "string") {
-            console.log("Parseando data.response como string");
-            parsedData = JSON.parse(data.response);
-          } else if (data.response && typeof data.response === "object") {
-            console.log("Usando data.response como objeto");
-            parsedData = data.response as VoyageData;
-          } else {
-            console.log("Usando datos directos");
-            // Si no hay output ni response, intentar usar los datos directamente
-            // Pero necesitamos parsear los arrays que vienen como strings JSON
-            const parseArrayField = (field: any) => {
-              if (typeof field === 'string') {
-                try {
-                  return JSON.parse(field);
-                } catch {
-                  return [];
-                }
-              }
-              return Array.isArray(field) ? field : [];
-            };
-            
-            parsedData = {
-              pays_destination: data.pays_destination || '',
-              programme_detaille: data.programme_detaille || '',
-              prix_par_personne: data.prix_par_personne || '',
-              chambre_simple: data.chambre_simple || '',
-              remarques_tarifs: data.remarques_tarifs || '',
-              inclus: parseArrayField(data.inclus),
-              non_inclus: parseArrayField(data.non_inclus),
-              table_itineraire_bref: parseArrayField(data.table_itineraire_bref)
-            };
-            
-            console.log("Datos procesados con parsing de arrays:", parsedData);
-          }
-
-          console.log("Datos parseados:", parsedData);
-          
-          // Si no se pudieron parsear los datos, usar datos de prueba para verificar que el componente funciona
-          if (parsedData && parsedData.programme_detaille) {
-            setVoyageData(parsedData);
-            console.log("voyageData establecido correctamente con datos reales");
-          } else {
-            console.log("No se pudieron parsear los datos, usando datos de prueba");
-            // Datos de prueba para verificar que el componente Previa funciona
-            const testData: VoyageData = {
-              programme_detaille: "<h3>Día 1: Llegada</h3><p>Llegada al aeropuerto y traslado al hotel.</p><h3>Día 2: City Tour</h3><p>Recorrido por la ciudad histórica.</p>",
-              table_itineraire_bref: [
-                {
-                  jour: "Día 1",
-                  date: "15/06/2024",
-                  programme: "Llegada y check-in",
-                  nuit: "Hotel Central",
-                  hôtel: "Hotel Boutique Central 4*"
-                },
-                {
-                  jour: "Día 2",
-                  date: "16/06/2024",
-                  programme: "City Tour y museos",
-                  nuit: "Hotel Central",
-                  hôtel: "Hotel Boutique Central 4*"
-                }
-              ],
-              prix_par_personne: "€1,250",
-              chambre_simple: "€200 suplemento",
-              remarques_tarifs: "Precios válidos hasta diciembre 2024",
-              inclus: ["Alojamiento en hotel 4*", "Desayuno incluido", "Traslados aeropuerto", "Guía local"],
-              non_inclus: ["Vuelos internacionales", "Comidas no especificadas", "Gastos personales", "Propinas"],
-              pays_destination: "París, Francia"
-            };
-            setVoyageData(testData);
-            console.log("Datos de prueba establecidos para verificar componente Previa");
-          }
-          
-          setConversacionData(JSON.stringify(data, null, 2));
-        } catch (parseError) {
-          console.error("Error al parsear los datos de conversación:", parseError);
-          setVoyageData(null);
-          setConversacionData("Error al parsear los datos de conversación");
-        }
-      } else {
-        console.log("No se encontró el documento de conversación");
-        setConversacionData("No se encontraron datos de conversación");
-      }
-    } catch (error) {
-      console.error("Error al obtener datos de conversación:", error);
-      setConversacionData("Error al cargar datos de conversación");
-    }
-  };
-
-  // Cargar datos de conversación al montar el componente
-  useEffect(() => {
-    console.log("useEffect ejecutándose - iniciando carga de datos");
-    fetchConversacionData();
-  }, []);
-
-  // Función para forzar recarga de datos (para debugging)
-  const forceReloadData = () => {
-    console.log("Forzando recarga de datos...");
-    setVoyageData(null);
-    setConversacionData("");
-    fetchConversacionData();
-  };
 
   // Procesamiento con envío de PDF al webhook
   const simulateProcessing = async () => {
@@ -535,19 +365,6 @@ const AIInteraction = () => {
           </TabsTrigger>
         </TabsList>
 
-        <Button onClick={() => setItineraryModalOpen(true)}>
-          Crear Nuevo Itinerario
-        </Button>
-
-        <Modal2
-          isOpen={itineraryModalOpen}
-          onClose={() => setItineraryModalOpen(false)}
-          onSave={(pais, ciudades) => {
-            setPaisDestino(pais);
-            setCiudadesItinerario(ciudades);
-          }}
-        />
-
         {/* PDF Upload */}
         <TabsContent value="pdf" className="space-y-4">
           <Card>
@@ -691,26 +508,14 @@ const AIInteraction = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">
-                    Información de n8n
-                  </label>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={forceReloadData}
-                    className="text-xs"
-                  >
-                    🔄 Debug: Recargar datos
-                  </Button>
-                </div>
-                <div className="border rounded-md p-3 bg-muted/30 min-h-[200px]">
-                  {console.log('Rendering Previa with voyageData:', voyageData)}
-                  <Previa
-                    data={voyageData}
-                    loading={!voyageData && !conversacionData.includes("Error")}
-                    error={conversacionData.includes("Error") ? conversacionData : null}
-                  />
+                <label className="text-sm font-medium">
+                  Información de n8n
+                </label>
+                <div className="border rounded-md p-3 bg-muted/30 min-h-[80px]">
+                  <p className="text-sm text-muted-foreground">
+                    {n8nResponse ||
+                      "Aquí se mostrará la información traída de n8n..."}
+                  </p>
                 </div>
               </div>
 
@@ -824,4 +629,362 @@ const AIInteraction = () => {
   );
 };
 
-export default AIInteraction;
+
+quiero que me adecues eb formato recat  y esta informacion :let result = {
+  programme_detaille: "",
+  table_itineraire_bref: [],
+  prix_par_personne: "",
+  chambre_simple: "",
+  remarques_tarifs: "",
+  inclus: [],
+  non_inclus: [],
+  pays_destination: "" // nuevo campo
+}; se va a extrae de la base de datos firebse , colletion: conversacion y de autetication o id :xvbV2piJNxukwOUWODPk conversacion tsx :let data;
+try {
+  data = typeof $json.output === "string" ? JSON.parse($json.output) : $json;
+} catch (e) {
+  return [{
+    json: {
+      error: "Échec de l'analyse JSON : la sortie du AI Agent1 doit être un objet JSON valide contenant programme_detaille, table_itineraire_bref, etc. Détail : " + e.message
+    }
+  }];
+}
+
+// Funciones existentes (sin cambios)
+const extractHotels = () => {
+  const seen = new Set();
+  return (data.table_itineraire_bref || [])
+    .filter(entry => entry.hôtel && !seen.has(entry.hôtel) && seen.add(entry.hôtel))
+    .map(entry => ({
+      nom: entry.hôtel,
+      description: `Nuit à ${entry.nuit || "emplacement inconnu"}`
+    }));
+};
+
+const renderHotels = (hotels) => {
+  const hotelImages = {
+    "El Mesón de Maria": "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+    "Hotel Atitlan 4*": "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+    "Jungle Lodge 3*": "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+    "Hôtel accueillant et moderne - King Room": "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752809571/Captura_de_pantalla_de_2025-07-17_21-18-08_m8z7sc.png"
+  };
+
+  return hotels.map(hotel => {
+    const defaultImage = "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png";
+    const image = hotelImages[hotel.nom] || defaultImage;
+    return `<li><strong>${hotel.nom}</strong> - ${hotel.description || ""}<div><img src="${image}" alt="${hotel.nom}" class="hotel-image"></div></li>`;
+  }).join("");
+};
+
+const renderTable = (rows) => Array.isArray(rows) ? rows.map(r => `<tr><td>${r.jour}</td><td>${r.date}</td><td>${r.programme}</td><td>${r.nuit}</td></tr>`).join("") : "";
+const renderList = (items) => Array.isArray(items) ? items.map(i => `<li>${i}</li>`).join("") : "";
+
+// HTML optimizado para evitar páginas vacías
+const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Immersion au ${data.pays_destination || "Destination"}</title>
+  <style>
+    /* TUS ESTILOS EXACTAMENTE COMO LOS TENÍAS */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      line-height: 1.6;
+      font-size: 10.5pt;
+      padding: 1rem;
+    }
+    
+    .container {
+      max-width: 100%;
+      background: white;
+      box-shadow: 0 0.2rem 1rem rgba(0,0,0,0.1);
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+    
+    /* En-tête */
+    .header-box {
+      text-align: center;
+      padding: 1rem 0;
+      margin-bottom: 1rem;
+    }
+    
+    .header-box img {
+      max-height: 3.5rem;
+      margin: 0 auto 1rem;
+      display: block;
+    }
+    
+    h1 {
+      color: #963f17;
+      font-size: 1.5rem;
+      margin: 0.5rem 0;
+      font-weight: 600;
+    }
+    
+    /* Sections */
+    .section {
+      margin-bottom: 1.5rem;
+    }
+    
+    h2 {
+      color: #ae5227;
+      font-size: 1.2rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e0e0e0;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    
+    /* Tableaux */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+      box-shadow: 0 0.1rem 0.3rem rgba(0,0,0,0.05);
+    }
+    
+    th {
+      background-color: #2c3e50;
+      color: white;
+      font-weight: 600;
+      padding: 0.6rem;
+      text-align: left;
+    }
+    
+    td {
+      padding: 0.6rem;
+      border-bottom: 1px solid #eee;
+    }
+    
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    
+    /* Listes */
+    ul {
+      padding-left: 1.2rem;
+      margin: 0.5rem 0;
+    }
+    
+    ul li {
+      margin-bottom: 0.8rem;
+      position: relative;
+    }
+    
+    ul li:before {
+      content: "•";
+      color: #ae6527;
+      font-weight: bold;
+      position: absolute;
+      left: -0.8rem;
+    }
+    
+    /* Éléments spéciaux */
+    .note {
+      background-color: #e7cec2;
+      border-left: 4px solid #74685d;
+      padding: 0.8rem;
+      margin: 1rem 0;
+      border-radius: 0 4px 4px 0;
+    }
+    
+    .price-box {
+      background-color: #e7cec2;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+      border-left: 4px solid #ae6527;
+    }
+    
+    /* Images */
+    img {
+      max-width: 100%;
+      align-items: center;
+      height: auto;
+      margin: 0.5rem 0;
+      border-radius: 4px;
+      display: block;
+    }
+    
+    .hotel-image {
+      max-height: 10rem;
+      object-fit: cover;
+      margin-top: 0.5rem;
+    }
+    
+    /* Pied de page */
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 2px solid #ae6527;
+    }
+    
+    /* MEJORAS ESPECÍFICAS PARA EVITAR PÁGINAS VACÍAS */
+    @media print {
+      /* Optimización de márgenes para aprovechar espacio */
+      body {
+        padding: 0;
+        margin: 0.5cm;
+        font-size: 10pt;
+      }
+      
+      .container {
+        padding: 0.5cm;
+        box-shadow: none;
+      }
+      
+      /* Control avanzado de saltos de página */
+      .section {
+        page-break-inside: auto;
+        page-break-after: auto;
+        page-break-before: auto;
+      }
+      
+      .programme-detaille {
+        page-break-inside: auto;
+      }
+      
+      /* Permite dividir tablas largas entre páginas */
+      table {
+        page-break-inside: auto;
+      }
+      
+      thead {
+        display: table-header-group;
+      }
+      
+      tr {
+        page-break-inside: avoid;
+      }
+      
+      /* Control de viudas/huérfanos para evitar líneas sueltas */
+      p, h1, h2, h3, li {
+        orphans: 3;  /* Mínimo 3 líneas al final de página */
+        widows: 3;   /* Mínimo 3 líneas al inicio de página */
+      }
+      
+      /* Evita que encabezados queden solos al final */
+      h1, h2, h3 {
+        page-break-after: avoid;
+      }
+      
+      /* Permite dividir listas largas */
+      ul {
+        page-break-inside: auto;
+      }
+      
+      li {
+        page-break-inside: avoid;
+      }
+      
+      /* Optimización de imágenes */
+      img {
+        max-height: 7cm;
+        page-break-inside: avoid;
+        page-break-after: avoid;
+      }
+      
+      .hotel-image {
+        max-height: 6cm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Contenido exactamente igual al tuyo -->
+  <div class="container">
+    <div class="header-box">
+      <img src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png" alt="Logo Néogusto">
+      <h1>Votre voyage avec Néogusto</h1>
+      <h1>Immersion au ${data.pays_destination || "Guatemala"}</h1>
+    </div>
+
+    <div class="section">
+      <h2>VOS ENVIES</h2>
+      <div style="border: 1px solid #333; height: 6rem; margin: 1rem 0;"></div>
+    </div>
+
+    <div class="section">
+      <h2>VOTRE ITINÉRAIRE EN BREF</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>JOUR</th>
+            <th>DATE</th>
+            <th>PROGRAMME</th>
+            <th>NUIT</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${renderTable(data.table_itineraire_bref || [])}
+        </tbody>
+      </table>
+      <div class="note">
+        <p>Le programme a été établi sur la base de nos derniers échanges et <strong>peut être adapté selon vos souhaits</strong>.</p>
+      </div>
+    </div>
+
+    <div class="section programme-detaille">
+      <h2>PROGRAMME DÉTAILLÉ</h2>
+      <img src="https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg" alt="Programme détaillé">
+      ${data.programme_detaille || "<p>Description du programme à venir</p>"}
+    </div>
+
+    <div class="section">
+      <table>
+        <tr>
+          <th>INCLUS</th>
+          <th>NON INCLUS</th>
+        </tr>
+        <tr>
+          <td><ul>${renderList(data.inclus || [])}</ul></td>
+          <td><ul>${renderList(data.non_inclus || [])}</ul></td>
+        </tr>
+      </table>
+      
+      <div class="price-box">
+        <p><strong>TARIF par personne : ${data.prix_par_personne || "à confirmer"}</strong></p>
+        <p>Chambre simple : ${data.chambre_simple || "sur demande"}</p>
+        <p>Remarques : ${data.remarques_tarifs || "aucune"}</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>VOS HÉBERGEMENTS</h2>
+      <img src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png" alt="Hébergements" style="max-height: 3rem; margin: 0 auto 1rem; display: block;">
+      <p>Hébergements sélectionnés pour leur <strong>confort</strong>, <strong>charme</strong> et <strong>localisation</strong>.</p>
+      
+      <ul>
+        ${renderHotels(extractHotels())}
+      </ul>
+      
+      <div class="note">
+        <p><strong>NOTE :</strong> Les hébergements proposés sont sujets à disponibilité au moment de la réservation.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <h2>BON VOYAGE !</h2>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+return [{
+  json: {
+    html
+  }
+}];
