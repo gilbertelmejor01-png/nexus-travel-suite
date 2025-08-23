@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db, collection, getDocs } from "@/lib/firebase";
 import { Layout } from "@/components/Layout";
 
 // Pages
@@ -18,6 +18,8 @@ import ManualCreation from "./pages/ManualCreation";
 import History from "./pages/History";
 import Preview from "./pages/Preview";
 import NotFound from "./pages/NotFound";
+import Perfil from "./pages/Perfil";
+import Client from "./pages/Client";
 
 
 const queryClient = new QueryClient();
@@ -39,7 +41,8 @@ const App = () => (
           <Route path="/manual-creation" element={<Layout><ManualCreation /></Layout>} />
           <Route path="/history" element={<Layout><History /></Layout>} />
           <Route path="/preview" element={<Layout><Preview /></Layout>} />
-          
+          <Route path="/perfil" element={<Layout><Perfil /></Layout>} />
+          <Route path="/cliente" element={<Layout><Client /></Layout>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
