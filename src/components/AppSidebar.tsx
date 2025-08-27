@@ -29,18 +29,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from 'react-i18next';
 
+// Navigation items ahora usan claves de traducción en lugar de texto fijo
 const navigationItems = [
-  { title: "Resumen Ejecutivo", url: "/dashboard", icon: Home },
-  { title: "Procesar  con AI", url: "/ai-interaction", icon: Bot },
-  { title: "Dashboard Analítico", url: "/analytics", icon: BarChart3 },
-  { title: "Comparaciones Avanzadas", url: "/comparisons", icon: TrendingUp },
-  { title: "cliente", url: "/cliente", icon: User },
-  { title: "Creación intinerario", url: "/manual-creation", icon: Plane },
-  { title: "Historial Unificado", url: "/history", icon: History },
-  
-  { title: "Perfil", url: "/perfil", icon: User },
-
+  { titleKey: "executive_summary", url: "/dashboard", icon: Home },
+  { titleKey: "process_with_ai", url: "/ai-interaction", icon: Bot },
+  { titleKey: "analytical_dashboard", url: "/analytics", icon: BarChart3 },
+  { titleKey: "advanced_comparisons", url: "/comparisons", icon: TrendingUp },
+  { titleKey: "client", url: "/cliente", icon: User },
+  { titleKey: "itinerary_creation", url: "/manual-creation", icon: Plane },
+  { titleKey: "unified_history", url: "/history", icon: History },
+  { titleKey: "profile", url: "/perfil", icon: User },
 ];
 
 export function AppSidebar() {
@@ -48,6 +48,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { toast } = useToast();
+  const { t } = useTranslation(); // Hook de traducción
   const currentPath = location.pathname;
 
   const isActive = (path: string) => currentPath === path;
@@ -60,13 +61,13 @@ export function AppSidebar() {
     try {
       await signOut(auth);
       toast({
-        title: "Sesión cerrada",
-        description: "Has cerrado sesión correctamente",
+        title: t('logout_success_title'),
+        description: t('logout_success_message'),
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "No se pudo cerrar la sesión",
+        title: t('error_title'),
+        description: t('logout_error_message'),
         variant: "destructive"
       });
     }
@@ -87,7 +88,7 @@ export function AppSidebar() {
               </div>
               <div>
                 <h2 className="font-semibold text-sidebar-foreground">Flowmatic</h2>
-                <p className="text-xs text-sidebar-foreground/70">Travel Manager</p>
+                <p className="text-xs text-sidebar-foreground/70">{t('travel_manager')}</p>
               </div>
             </div>
           )}
@@ -106,14 +107,14 @@ export function AppSidebar() {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="px-2 text-sidebar-foreground/70 font-medium">
-              Menú Principal
+              {t('main_menu')}
             </SidebarGroupLabel>
           )}
           
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {navigationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+                <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild className="h-10">
                     <NavLink 
                       to={item.url} 
@@ -124,7 +125,7 @@ export function AppSidebar() {
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
                       {!collapsed && (
-                        <span className="font-medium">{item.title}</span>
+                        <span className="font-medium">{t(item.titleKey)}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
@@ -143,7 +144,7 @@ export function AppSidebar() {
             }`}
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && <span className="font-medium">Cerrar sesión</span>}
+            {!collapsed && <span className="font-medium">{t('log_out')}</span>}
           </SidebarMenuButton>
         </div>
       </SidebarContent>

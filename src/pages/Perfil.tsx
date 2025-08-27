@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,23 +24,24 @@ interface PerfilEmpresa {
     creacionItinerario: string;
     itinerarioRapido: string;
     analiticasIA: string;
-    conversacion: string; // Nuevo campo
+    conversacion: string;
   };
 }
 
 export default function Perfil() {
+  const { t } = useTranslation();
   const [perfil, setPerfil] = useState<PerfilEmpresa>({
     nombreEmpresa: "",
     logo: {
       tipo: "url",
       valor: ""
     },
-    copyright: " 2025 Flowmatic – L'IA au service des Pros du Tourisme",
+    copyright: t('default_copyright'),
     conexionesIA: {
       creacionItinerario: "",
       itinerarioRapido: "",
       analiticasIA: "",
-      conversacion: "" // Nuevo campo inicializado
+      conversacion: ""
     }
   });
 
@@ -53,7 +55,7 @@ export default function Perfil() {
     cargarPerfil();
   }, [uid]);
 
- const cargarPerfil = async () => {
+  const cargarPerfil = async () => {
     try {
       if (!uid) return;
       const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
@@ -67,17 +69,17 @@ export default function Perfil() {
             creacionItinerario: data?.conexionesIA?.creacionItinerario || "",
             itinerarioRapido: data?.conexionesIA?.itinerarioRapido || "",
             analiticasIA: data?.conexionesIA?.analiticasIA || "",
-            conversacion: data?.conexionesIA?.conversacion || "", // Cargar nuevo campo
+            conversacion: data?.conexionesIA?.conversacion || "",
             ...data?.conexionesIA,
           },
         }));
         if (data?.logo?.valor) setLogoPreview(data.logo.valor);
       }
     } catch (error) {
-      console.error("Error cargando perfil:", error);
+      console.error(t('error_loading_profile'), error);
       toast({
-        title: "Error",
-        description: "No se pudo cargar el perfil",
+        title: t('error_title'),
+        description: t('profile_load_error'),
         variant: "destructive"
       });
     }
@@ -86,8 +88,8 @@ export default function Perfil() {
   const guardarPerfil = async () => {
     if (!perfil.nombreEmpresa.trim()) {
       toast({
-        title: "Error",
-        description: "El nombre de la empresa es obligatorio",
+        title: t('error_title'),
+        description: t('company_name_required'),
         variant: "destructive"
       });
       return;
@@ -96,7 +98,11 @@ export default function Perfil() {
     setGuardando(true);
     try {
       if (!uid) {
-        toast({ title: "Sesión requerida", description: "Inicia sesión para guardar tu perfil.", variant: "destructive" });
+        toast({ 
+          title: t('session_required'), 
+          description: t('login_to_save_profile'), 
+          variant: "destructive" 
+        });
         return;
       }
       const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
@@ -108,14 +114,14 @@ export default function Perfil() {
       }
 
       toast({
-        title: "Éxito",
-        description: "Perfil guardado correctamente",
+        title: t('success_title'),
+        description: t('profile_saved_success'),
       });
     } catch (error) {
-      console.error("Error guardando perfil:", error);
+      console.error(t('error_saving_profile'), error);
       toast({
-        title: "Error",
-        description: "No se pudo guardar el perfil",
+        title: t('error_title'),
+        description: t('profile_save_error'),
         variant: "destructive"
       });
     } finally {
@@ -146,8 +152,8 @@ export default function Perfil() {
     if (file) {
       if (!file.type.includes('image/')) {
         toast({
-          title: "Error",
-          description: "Solo se permiten archivos de imagen",
+          title: t('error_title'),
+          description: t('only_image_files_allowed'),
           variant: "destructive"
         });
         return;
@@ -155,8 +161,8 @@ export default function Perfil() {
 
       if (file.size > 5 * 1024 * 1024) {
         toast({
-          title: "Error",
-          description: "El archivo debe ser menor a 5MB",
+          title: t('error_title'),
+          description: t('file_size_exceeded'),
           variant: "destructive"
         });
         return;
@@ -175,9 +181,9 @@ export default function Perfil() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Perfil de Empresa</h1>
+          <h1 className="text-3xl font-bold text-foreground">{t('company_profile')}</h1>
           <p className="text-muted-foreground">
-            Configura la información de tu empresa
+            {t('configure_company_info')}
           </p>
         </div>
         
@@ -187,7 +193,7 @@ export default function Perfil() {
           className="flex items-center gap-2"
         >
           <Save className="h-4 w-4" />
-          {guardando ? "Guardando..." : "Guardar"}
+          {guardando ? t('saving') : t('save')}
         </Button>
       </div>
 
@@ -197,27 +203,27 @@ export default function Perfil() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5" />
-              Información General
+              {t('general_information')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="nombreEmpresa">Nombre de la Empresa</Label>
+              <Label htmlFor="nombreEmpresa">{t('company_name')}</Label>
               <Input
                 id="nombreEmpresa"
                 value={perfil.nombreEmpresa}
                 onChange={(e) => setPerfil({...perfil, nombreEmpresa: e.target.value})}
-                placeholder="Tu Empresa S.L."
+                placeholder={t('company_name_placeholder')}
               />
             </div>
             
             <div>
-              <Label htmlFor="copyright">Copyright</Label>
+              <Label htmlFor="copyright">{t('copyright')}</Label>
               <Textarea
                 id="copyright"
                 value={perfil.copyright}
                 onChange={(e) => setPerfil({...perfil, copyright: e.target.value})}
-                placeholder=" 2025 Tu Empresa – Descripción"
+                placeholder={t('copyright_placeholder')}
                 rows={3}
               />
             </div>
@@ -229,7 +235,7 @@ export default function Perfil() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Image className="h-5 w-5" />
-              Logo de la Empresa
+              {t('company_logo')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -238,13 +244,13 @@ export default function Perfil() {
               <div className="flex justify-center p-4 border rounded-lg bg-muted/50">
                 <img 
                   src={logoPreview} 
-                  alt="Logo preview" 
+                  alt={t('logo_preview_alt')} 
                   className="max-h-24 max-w-full object-contain"
                   onError={() => {
                     setLogoPreview("");
                     toast({
-                      title: "Error",
-                      description: "No se pudo cargar la imagen",
+                      title: t('error_title'),
+                      description: t('image_load_error'),
                       variant: "destructive"
                     });
                   }}
@@ -256,26 +262,26 @@ export default function Perfil() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full">
                   <Upload className="h-4 w-4 mr-2" />
-                  {perfil.logo.valor ? "Cambiar Logo" : "Agregar Logo"}
+                  {perfil.logo.valor ? t('change_logo') : t('add_logo')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Agregar/Cambiar Logo</DialogTitle>
+                  <DialogTitle>{t('add_change_logo')}</DialogTitle>
                 </DialogHeader>
                 
                 <Tabs defaultValue="url" className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="url">URL</TabsTrigger>
-                    <TabsTrigger value="archivo">Archivo</TabsTrigger>
+                    <TabsTrigger value="url">{t('url')}</TabsTrigger>
+                    <TabsTrigger value="archivo">{t('file')}</TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="url" className="space-y-4">
                     <div>
-                      <Label htmlFor="logoUrl">URL de la imagen</Label>
+                      <Label htmlFor="logoUrl">{t('image_url')}</Label>
                       <Input
                         id="logoUrl"
-                        placeholder="https://ejemplo.com/logo.png"
+                        placeholder={t('image_url_placeholder')}
                         onChange={(e) => handleLogoChange("url", e.target.value)}
                       />
                     </div>
@@ -283,13 +289,13 @@ export default function Perfil() {
                       onClick={() => setIsDialogOpen(false)}
                       className="w-full"
                     >
-                      Usar URL
+                      {t('use_url')}
                     </Button>
                   </TabsContent>
                   
                   <TabsContent value="archivo" className="space-y-4">
                     <div>
-                      <Label htmlFor="logoFile">Seleccionar archivo</Label>
+                      <Label htmlFor="logoFile">{t('select_file')}</Label>
                       <Input
                         id="logoFile"
                         type="file"
@@ -297,14 +303,14 @@ export default function Perfil() {
                         onChange={handleFileUpload}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Formatos: JPG, PNG. Máximo 5MB
+                        {t('file_formats_limit')}
                       </p>
                     </div>
                     <Button 
                       onClick={() => setIsDialogOpen(false)}
                       className="w-full"
                     >
-                      Usar Archivo
+                      {t('use_file')}
                     </Button>
                   </TabsContent>
                 </Tabs>
@@ -320,7 +326,7 @@ export default function Perfil() {
                 }}
                 className="w-full"
               >
-                Quitar Logo
+                {t('remove_logo')}
               </Button>
             )}
           </CardContent>
@@ -332,61 +338,61 @@ export default function Perfil() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Cpu className="h-5 w-5 text-flowmatic-teal" />
-            Conexiones con IA
+            {t('ai_connections')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <Label htmlFor="creacionItinerario" className="mb-2 block">
-                URL de Creación de Itinerario
+                {t('itinerary_creation_url')}
               </Label>
               <Input
                 id="creacionItinerario"
                 value={perfil.conexionesIA?.creacionItinerario || ""}
                 onChange={(e) => handleConexionIAChange("creacionItinerario", e.target.value)}
-                placeholder="https://api.ejemplo.com/creacion-itinerario"
+                placeholder={t('itinerary_creation_url_placeholder')}
               />
             </div>
             
             <div>
               <Label htmlFor="itinerarioRapido" className="mb-2 block">
-                URL de Itinerario Rápido
+                {t('quick_itinerary_url')}
               </Label>
               <Input
                 id="itinerarioRapido"
                 value={perfil.conexionesIA?.itinerarioRapido || ""}
                 onChange={(e) => handleConexionIAChange("itinerarioRapido", e.target.value)}
-                placeholder="https://api.ejemplo.com/itinerario-rapido"
+                placeholder={t('quick_itinerary_url_placeholder')}
               />
             </div>
             
             <div>
               <Label htmlFor="analiticasIA" className="mb-2 block">
-                URL de Analíticas de IA
+                {t('ai_analytics_url')}
               </Label>
               <Input
                 id="analiticasIA"
                 value={perfil.conexionesIA?.analiticasIA || ""}
                 onChange={(e) => handleConexionIAChange("analiticasIA", e.target.value)}
-                placeholder="https://api.ejemplo.com/analiticas-ia"
+                placeholder={t('ai_analytics_url_placeholder')}
               />
             </div>
             <div>
               <Label htmlFor="conversacion" className="mb-2 block">
-                URL informacion  (plantilla)
+                {t('conversation_url')}
               </Label>
               <Input
                 id="conversacion"
                 value={perfil.conexionesIA?.conversacion || ""}
                 onChange={(e) => handleConexionIAChange("conversacion", e.target.value)}
-                placeholder="https://firestore.googleapis.com/v1/projects/..."
+                placeholder={t('conversation_url_placeholder')}
               />
             </div>
           </div>
           
           <p className="text-sm text-muted-foreground">
-            Estas URLs se utilizarán para conectar con los servicios de IA de tu empresa.
+            {t('ai_urls_description')}
           </p>
         </CardContent>
       </Card>
@@ -394,7 +400,7 @@ export default function Perfil() {
       {/* Vista Previa */}
       <Card>
         <CardHeader>
-          <CardTitle>Vista Previa</CardTitle>
+          <CardTitle>{t('preview')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="border rounded-lg p-6 bg-muted/30">
@@ -403,13 +409,13 @@ export default function Perfil() {
                 {logoPreview && (
                   <img 
                     src={logoPreview} 
-                    alt="Logo" 
+                    alt={t('logo_alt')} 
                     className="h-12 w-12 object-contain"
                   />
                 )}
                 <div>
                   <h3 className="text-lg font-semibold">
-                    {perfil.nombreEmpresa || "Nombre de la Empresa"}
+                    {perfil.nombreEmpresa || t('company_name_default')}
                   </h3>
                   <p className="text-sm text-muted-foreground">
                     {perfil.copyright}

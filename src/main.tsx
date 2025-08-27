@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import App from './App';
+import '../src/lenguash/i18n'; // Importa la configuración de i18next
 import './index.css';
 
 const queryClient = new QueryClient();
@@ -16,7 +17,9 @@ root.render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <React.Suspense fallback={<div>Cargando...</div>}>
+            <App />
+          </React.Suspense>
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>

@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import LanguageSelector from './components/LanguageSelector'; // Importa el selector de idioma
 
 // Import your pages
 import Login from './pages/Login';
@@ -33,6 +34,11 @@ const App = () => {
 
   return (
     <TooltipProvider>
+      {/* Selector de idioma global */}
+      <div className="fixed top-4 right-4 z-50">
+        <LanguageSelector />
+      </div>
+      
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/dashboard" replace />} />

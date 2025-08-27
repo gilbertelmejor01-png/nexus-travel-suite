@@ -27,6 +27,7 @@ import { doc, getDoc } from "firebase/firestore";
 import Modal2 from "../components/Modal2";
 import Previa, { VoyageData } from "../components/Previa";
 import Modal from "../components/Modal";
+import { useTranslation } from 'react-i18next';
 
 interface ProcessedData {
   destino: string;
@@ -56,9 +57,9 @@ const AIInteraction = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [paisOrigen, setPaisOrigen] = useState("");
   const [imagenOrigen, setImagenOrigen] = useState<File | null>(null);
+  const { t } = useTranslation(); // Hook de traducción
 
   // Función para obtener datos de la conversación desde Firestore
-  // Modifica fetchConversacionData para obtener los datos estructurados
   const fetchConversacionData = async () => {
     console.log("🔄 Iniciando fetchConversacionData...");
     try {
@@ -233,10 +234,10 @@ const AIInteraction = () => {
 
         if (pdfFiles.length > 0) {
           const steps = [
-            { message: "Analizando documentos...", progress: 25 },
-            { message: "Enviando PDF al webhook...", progress: 60 },
-            { message: "Procesando respuesta...", progress: 85 },
-            { message: "¡Listo!", progress: 100 },
+            { message: t('analyzing_documents'), progress: 25 },
+            { message: t('sending_pdf_webhook'), progress: 60 },
+            { message: t('processing_response'), progress: 85 },
+            { message: t('ready'), progress: 100 },
           ];
 
           for (const step of steps) {
@@ -315,7 +316,7 @@ const AIInteraction = () => {
                       }
                     } else {
                       console.warn("Respuesta vacía desde n8n");
-                      setN8nResponse("⚠️ Sin respuesta desde n8n");
+                      setN8nResponse("⚠️ " + t('no_response_n8n'));
                     }
                   } catch (e) {
                     console.error("Error leyendo respuesta de n8n:", e);
@@ -347,24 +348,24 @@ const AIInteraction = () => {
 
           setProcessing(false);
           toast({
-            title: "Procesamiento completado",
-            description: "El PDF ha sido enviado y procesado exitosamente",
+            title: t('processing_complete'),
+            description: t('pdf_processed_successfully'),
           });
         } else {
           setProcessing(false);
           toast({
-            title: "Error",
-            description: "No se encontraron archivos PDF para procesar",
+            title: t('error'),
+            description: t('no_pdf_files_found'),
             variant: "destructive",
           });
         }
       } else if (activeTab === "text" && textDescription.trim()) {
         // Procesar texto natural y enviar al webhook
         const steps = [
-          { message: "Analizando descripción...", progress: 25 },
-          { message: "Enviando a n8n...", progress: 60 },
-          { message: "Procesando respuesta...", progress: 85 },
-          { message: "¡Listo!", progress: 100 },
+          { message: t('analyzing_description'), progress: 25 },
+          { message: t('sending_to_n8n'), progress: 60 },
+          { message: t('processing_response'), progress: 85 },
+          { message: t('ready'), progress: 100 },
         ];
 
         for (const step of steps) {
@@ -425,17 +426,16 @@ const AIInteraction = () => {
 
         setProcessing(false);
         toast({
-          title: "Procesamiento completado",
-          description:
-            "La descripción ha sido enviada y procesada exitosamente",
+          title: t('processing_complete'),
+          description: t('description_processed_successfully'),
         });
       } else {
         // Para otros tabs o sin contenido, mantener comportamiento original
         const steps = [
-          { message: "Analizando documentos...", progress: 25 },
-          { message: "Extrayendo datos...", progress: 60 },
-          { message: "Estructurando información...", progress: 85 },
-          { message: "¡Listo!", progress: 100 },
+          { message: t('analyzing_documents'), progress: 25 },
+          { message: t('extracting_data'), progress: 60 },
+          { message: t('structuring_information'), progress: 85 },
+          { message: t('ready'), progress: 100 },
         ];
 
         for (const step of steps) {
@@ -463,17 +463,16 @@ const AIInteraction = () => {
 
         setProcessing(false);
         toast({
-          title: "Procesamiento completado",
-          description: "Los datos han sido extraídos exitosamente",
+          title: t('processing_complete'),
+          description: t('data_extracted_successfully'),
         });
       }
     } catch (error) {
       setProcessing(false);
       console.error("Error en el procesamiento:", error);
       toast({
-        title: "Error en el procesamiento",
-        description:
-          "Hubo un problema al procesar el archivo. Inténtalo de nuevo.",
+        title: t('processing_error'),
+        description: t('processing_problem_try_again'),
         variant: "destructive",
       });
     }
@@ -488,8 +487,8 @@ const AIInteraction = () => {
     onDrop: (acceptedFiles) => {
       setFiles((prev) => [...prev, ...acceptedFiles]);
       toast({
-        title: "Archivos agregados",
-        description: `${acceptedFiles.length} archivo(s) agregado(s)`,
+        title: t('files_added'),
+        description: t('files_added_count', { count: acceptedFiles.length }),
       });
     },
   });
@@ -499,11 +498,11 @@ const AIInteraction = () => {
   };
 
   const optimizeDescription = () => {
-    const optimized = `Viaje organizado para pareja: ${textDescription}. Incluye alojamiento en hoteles 4-5 estrellas, desayuno incluido, traslados aeropuerto-hotel, y recomendaciones gastronómicas locales.`;
+    const optimized = `${t('organized_trip_for_couple')}: ${textDescription}. ${t('includes_hotels_breakfast_transfers')}`;
     setTextDescription(optimized);
     toast({
-      title: "Descripción optimizada",
-      description: "La IA ha mejorado tu descripción",
+      title: t('description_optimized'),
+      description: t('ai_improved_description'),
     });
   };
 
@@ -512,10 +511,10 @@ const AIInteraction = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          Interacción con IA
+          {t('ai_interaction')}
         </h1>
         <p className="text-muted-foreground">
-          Procesa información de viajes usando inteligencia artificial
+          {t('process_travel_info_ai')}
         </p>
       </div>
 
@@ -523,20 +522,20 @@ const AIInteraction = () => {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pdf" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Subir PDF
+            {t('upload_pdf')}
           </TabsTrigger>
           
           <TabsTrigger value="text" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Texto Natural
+            {t('natural_text')}
           </TabsTrigger>
         </TabsList>
 
         <div>
           <Button onClick={() => setItineraryModalOpen(true)}>
-            Crear Nuevo Itinerario
+            {t('create_new_itinerary')}
           </Button>
-          <Button onClick={() => setModalOpen(true)}>Agregar imagen</Button>
+          <Button onClick={() => setModalOpen(true)}>{t('add_image')}</Button>
         </div>
         <Modal2
           isOpen={itineraryModalOpen}
@@ -560,7 +559,7 @@ const AIInteraction = () => {
         <TabsContent value="pdf" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Subir Documentos PDF</CardTitle>
+              <CardTitle>{t('upload_pdf_documents')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div
@@ -575,18 +574,18 @@ const AIInteraction = () => {
                 <Upload className="h-12 w-12 mx-auto mb-4 text-flowmatic-teal" />
                 <p className="text-lg font-medium mb-2">
                   {isDragActive
-                    ? "Suelta los archivos aquí"
-                    : "Arrastra archivos o haz clic"}
+                    ? t('drop_files_here')
+                    : t('drag_or_click_files')}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Límite: 5 archivos (PDF, JPG, PNG) - Máx. 10MB cada uno
+                  {t('file_limit_pdf_jpg_png')}
                 </p>
               </div>
 
               {/* Files Preview */}
               {files.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <h4 className="font-medium">Archivos seleccionados:</h4>
+                  <h4 className="font-medium">{t('selected_files')}:</h4>
                   {files.map((file, index) => (
                     <div
                       key={index}
@@ -596,7 +595,7 @@ const AIInteraction = () => {
                         <FileText className="h-4 w-4 text-flowmatic-teal" />
                         <span className="text-sm">{file.name}</span>
                         <Badge variant="secondary" className="text-xs">
-                          {(file.size / 1024 / 1024).toFixed(1)} MB
+                          {(file.size / 1024 / 1024).toFixed(1)} {t('mb')}
                         </Badge>
                       </div>
                       <Button
@@ -618,14 +617,14 @@ const AIInteraction = () => {
         <TabsContent value="email" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Captura de Email</CardTitle>
+              <CardTitle>{t('email_capture')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Email asociado</label>
+                <label className="text-sm font-medium">{t('associated_email')}</label>
                 <Input
                   type="email"
-                  placeholder="cliente@email.com"
+                  placeholder={t('client_email_placeholder')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail className="h-4 w-4" />}
@@ -638,9 +637,9 @@ const AIInteraction = () => {
               >
                 <input {...getInputProps()} />
                 <Image className="h-8 w-8 mx-auto mb-2 text-flowmatic-teal" />
-                <p className="font-medium">Subir imágenes de emails</p>
+                <p className="font-medium">{t('upload_email_images')}</p>
                 <p className="text-xs text-muted-foreground">
-                  Solo imágenes claras de emails
+                  {t('only_clear_email_images')}
                 </p>
               </div>
             </CardContent>
@@ -651,38 +650,37 @@ const AIInteraction = () => {
         <TabsContent value="sheet" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Conexión con Google Sheets</CardTitle>
+              <CardTitle>{t('google_sheets_connection')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {!connected ? (
                 <div className="text-center py-8">
                   <Sheet className="h-16 w-16 mx-auto mb-4 text-flowmatic-teal" />
-                  <h3 className="font-medium mb-2">Conectar Google Sheets</h3>
+                  <h3 className="font-medium mb-2">{t('connect_google_sheets')}</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Autoriza el acceso para importar datos de tus hojas de
-                    cálculo
+                    {t('authorize_access_import_data')}
                   </p>
                   <Button
                     variant="flowmatic"
                     onClick={() => setConnected(true)}
                   >
-                    Conectar con Google
+                    {t('connect_with_google')}
                   </Button>
                 </div>
               ) : (
                 <div>
                   <div className="flex items-center gap-2 text-success mb-4">
                     <div className="w-2 h-2 bg-success rounded-full"></div>
-                    <span className="text-sm">Conectado exitosamente</span>
+                    <span className="text-sm">{t('successfully_connected')}</span>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
-                      Seleccionar hoja
+                      {t('select_sheet')}
                     </label>
                     <select className="w-full p-2 border rounded-md">
-                      <option>Presupuestos 2024</option>
-                      <option>Clientes Principales</option>
-                      <option>Destinos Populares</option>
+                      <option>{t('budgets_2024')}</option>
+                      <option>{t('main_clients')}</option>
+                      <option>{t('popular_destinations')}</option>
                     </select>
                   </div>
                 </div>
@@ -695,13 +693,13 @@ const AIInteraction = () => {
         <TabsContent value="text" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Descripción en Texto Natural</CardTitle>
+              <CardTitle>{t('natural_text_description')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium">
-                    Información de n8n
+                    {t('n8n_information')}
                   </label>
                   <Button 
                     variant="outline" 
@@ -709,7 +707,7 @@ const AIInteraction = () => {
                     onClick={forceReloadData}
                     className="text-xs"
                   >
-                    🔄 Debug: Recargar datos
+                    🔄 {t('debug_reload_data')}
                   </Button>
                 </div>
                 <div className="border rounded-md p-3 bg-muted/30 min-h-[200px]">
@@ -723,9 +721,9 @@ const AIInteraction = () => {
               </div>
 
               <div>
-                <label className="text-sm font-medium">Describe el viaje</label>
+                <label className="text-sm font-medium">{t('describe_trip')}</label>
                 <Textarea
-                  placeholder="Ej: Viaje de luna de miel a París del 15 al 20 de junio, hotel boutique en Montmartre, incluye cena romántica en Torre Eiffel..."
+                  placeholder={t('trip_description_example')}
                   value={textDescription}
                   onChange={(e) => setTextDescription(e.target.value)}
                   rows={6}
@@ -738,7 +736,7 @@ const AIInteraction = () => {
                 className="w-full"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                Optimizar descripción
+                {t('optimize_description')}
               </Button>
             </CardContent>
           </Card>
@@ -757,12 +755,12 @@ const AIInteraction = () => {
           {processing ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Procesando...
+              {t('processing')}
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Procesar con IA
+              {t('process_with_ai')}
             </>
           )}
         </Button>
@@ -774,7 +772,7 @@ const AIInteraction = () => {
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Procesando datos...</span>
+                <span className="text-sm font-medium">{t('processing_data')}</span>
                 <span className="text-sm text-muted-foreground">
                   {progress}%
                 </span>
@@ -789,17 +787,17 @@ const AIInteraction = () => {
       {processedData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Previsualización de Datos</CardTitle>
+            <CardTitle>{t('data_preview')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-2">Destino</th>
-                    <th className="text-left p-2">Fechas</th>
-                    <th className="text-left p-2">Hotel</th>
-                    <th className="text-left p-2">Coste</th>
+                    <th className="text-left p-2">{t('destination')}</th>
+                    <th className="text-left p-2">{t('dates')}</th>
+                    <th className="text-left p-2">{t('hotel')}</th>
+                    <th className="text-left p-2">{t('cost')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -818,11 +816,11 @@ const AIInteraction = () => {
             <div className="flex gap-4 mt-6">
               <Button variant="outline" className="flex-1">
                 <Edit3 className="h-4 w-4 mr-2" />
-                Editar manualmente
+                {t('edit_manually')}
               </Button>
               <Button variant="flowmatic" className="flex-1">
                 <Send className="h-4 w-4 mr-2" />
-                Enviar al cliente
+                {t('send_to_client')}
               </Button>
             </div>
           </CardContent>

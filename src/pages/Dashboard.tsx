@@ -25,8 +25,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, Timestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import { useTranslation } from 'react-i18next';
+import { useToast } from "@/components/ui/use-toast";
 
 interface Cliente {
   id: string;
@@ -40,6 +42,7 @@ interface Cliente {
   estado: "pendiente" | "revision" | "pago" | "firmado" | "finalizado";
   fechaCreacion?: Timestamp;
   presupuestoVence?: Timestamp;
+  createdAt?: any;
 }
 
 // Initial data structure
@@ -59,6 +62,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { uid } = useAuth();
+  const { t } = useTranslation();
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchClientes = async () => {
@@ -169,20 +174,20 @@ const Dashboard = () => {
   const [busqueda, setBusqueda] = useState("");
   const itemsPerPage = 10;
 
-  if (!uid) return <div className="p-8 text-center">Cargando datos...</div>;
-  if (loading) return <div className="p-8 text-center">Cargando datos...</div>;
-  if (error) return <div className="p-8 text-center text-red-500">Error al cargar los datos: {error}</div>;
+  if (!uid) return <div className="p-8 text-center">{t('loading_data')}</div>;
+  if (loading) return <div className="p-8 text-center">{t('loading_data')}</div>;
+  if (error) return <div className="p-8 text-center text-red-500">{t('error_loading')} {error}</div>;
 
   const { kpis, alertas, ultimosPresupuestos } = data;
 
   // Filtrar presupuestos
   const mapFiltroToEstado = (val: string) => {
     switch (val) {
-      case 'Pendiente': return 'pendiente';
-      case 'En revisión': return 'revision';
-      case 'Firmado': return 'firmado';
-      case 'Perdido': return 'perdido'; // no mapeado en BD; quedará sin coincidencias
-      case 'Vence hoy': return 'vence_hoy'; // no mapeado en BD
+      case t('pending_status'): return 'pendiente';
+      case t('in_review'): return 'revision';
+      case t('signed'): return 'firmado';
+      case t('lost'): return 'perdido';
+      case t('due_today'): return 'vence_hoy';
       default: return 'todos';
     }
   };
@@ -223,7 +228,7 @@ const Dashboard = () => {
 
   const exportToCSV = () => {
     const csvContent = [
-      ["Cliente", "Destino", "Valor", "Estado", "Fecha"],
+      [t('client'), t('destination'), t('value'), t('status'), t('date')],
       ...presupuestosFiltrados.map(p => [p.cliente, p.destino, `€${p.valor}`, p.estado, p.fecha])
     ].map(row => row.join(",")).join("\n");
     
@@ -246,16 +251,47 @@ const Dashboard = () => {
     ? (data.kpis.presupuestos.completados / data.kpis.presupuestos.total) * 100 
     : 0;
 
+  const ESTADOS = [
+    { value: "pendiente", label: t('pending_status'), color: "bg-yellow-500" },
+    { value: "revision", label: t('in_review'), color: "bg-blue-500" },
+    { value: "pago", label: t('payment_status'), color: "bg-orange-500" },
+    { value: "firmado", label: t('signed'), color: "bg-green-500" },
+    { value: "finalizado", label: t('completed'), color: "bg-gray-500" }
+  ];
+
+  const handleStatusChange = async (clienteId: string, nuevoEstado: string) => {
+    if (!uid) {
+      toast({ title: t('error_title'), description: t('unauthorized'), variant: "destructive" });
+      return;
+    }
+    try {
+      const clienteRef = doc(db, "users", uid, "clientes", clienteId);
+      await updateDoc(clienteRef, { estado: nuevoEstado });
+
+      setData(prevData => ({
+        ...prevData,
+        ultimosPresupuestos: prevData.ultimosPresupuestos.map(p =>
+          p.id === clienteId ? { ...p, estado: nuevoEstado } : p
+        )
+      }));
+
+      toast({ title: t('success_title'), description: t('status_updated') });
+    } catch (error) {
+      console.error("Error updating status:", error);
+      toast({ title: t('error_title'), description: t('status_update_error'), variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Resumen Ejecutivo</h1>
-          <p className="text-muted-foreground">Visión general de tu negocio de viajes</p>
+          <h1 className="text-3xl font-bold text-foreground">{t('executive_summary')}</h1>
+          <p className="text-muted-foreground">{t('travel_business_overview')}</p>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Última actualización: {new Date().toLocaleTimeString('es-ES')}</span>
+          <span>{t('last_update')}: {new Date().toLocaleTimeString('es-ES')}</span>
         </div>
       </div>
 
@@ -264,7 +300,7 @@ const Dashboard = () => {
         {/* Viajes Activos */}
         <Card className="hover:shadow-flowmatic transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Viajes Activos</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('active_trips')}</CardTitle>
             <Plane className="h-4 w-4 text-flowmatic-teal" />
           </CardHeader>
           <CardContent>
@@ -279,17 +315,17 @@ const Dashboard = () => {
         {/* Clientes Únicos */}
         <Card className="hover:shadow-flowmatic transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Únicos</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('unique_clients')}</CardTitle>
             <Users className="h-4 w-4 text-flowmatic-medium-blue" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{data.kpis.clientesUnicos.total}</div>
             <div className="flex gap-2 mt-2">
               <Badge variant="secondary" className="text-xs">
-                {data.kpis.clientesUnicos.nuevos} nuevos
+                {data.kpis.clientesUnicos.nuevos} {t('new')}
               </Badge>
               <Badge variant="outline" className="text-xs">
-                {data.kpis.clientesUnicos.recurrentes} recurrentes
+                {data.kpis.clientesUnicos.recurrentes} {t('recurring')}
               </Badge>
             </div>
           </CardContent>
@@ -298,7 +334,7 @@ const Dashboard = () => {
         {/* Presupuestos */}
         <Card className="hover:shadow-flowmatic transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Presupuestos</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('budgets')}</CardTitle>
             <FileText className="h-4 w-4 text-flowmatic-green" />
           </CardHeader>
           <CardContent>
@@ -306,8 +342,8 @@ const Dashboard = () => {
             <div className="mt-2">
               <Progress value={presupuestosProgress} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>{Math.round(presupuestosProgress)}% completados</span>
-                <span>{data.kpis.presupuestos.pendientes} pendientes</span>
+                <span>{Math.round(presupuestosProgress)}% {t('completed')}</span>
+                <span>{data.kpis.presupuestos.pendientes} {t('pending')}</span>
               </div>
             </div>
           </CardContent>
@@ -316,7 +352,7 @@ const Dashboard = () => {
         {/* Valoración Total */}
         <Card className="hover:shadow-flowmatic transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valoración Total</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('total_valuation')}</CardTitle>
             <Euro className="h-4 w-4 text-flowmatic-dark-blue" />
           </CardHeader>
           <CardContent>
@@ -335,13 +371,13 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-flowmatic-teal" />
-              Gestión de Presupuestos
+              {t('budget_management')}
             </CardTitle>
             <div className="flex flex-col sm:flex-row gap-4 mt-4">
               <div className="flex items-center gap-2 flex-1">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por cliente o destino..."
+                  placeholder={t('search_placeholder')}
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   className="flex-1"
@@ -349,20 +385,20 @@ const Dashboard = () => {
               </div>
               <Select value={filtroEstado} onValueChange={setFiltroEstado}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filtrar por estado" />
+                  <SelectValue placeholder={t('filter_status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="todos">Todos los estados</SelectItem>
-                  <SelectItem value="Pendiente">Pendiente</SelectItem>
-                  <SelectItem value="Firmado">Firmado</SelectItem>
-                  <SelectItem value="Perdido">Perdido</SelectItem>
-                  <SelectItem value="Vence hoy">Vence hoy</SelectItem>
-                  <SelectItem value="En revisión">En revisión</SelectItem>
+                  <SelectItem value="todos">{t('all_statuses')}</SelectItem>
+                  <SelectItem value={t('pending_status')}>{t('pending_status')}</SelectItem>
+                  <SelectItem value={t('signed')}>{t('signed')}</SelectItem>
+                  <SelectItem value={t('lost')}>{t('lost')}</SelectItem>
+                  <SelectItem value={t('due_today')}>{t('due_today')}</SelectItem>
+                  <SelectItem value={t('in_review')}>{t('in_review')}</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={exportToCSV} variant="outline" size="sm">
                 <Download className="h-4 w-4 mr-2" />
-                Exportar CSV
+                {t('export_csv')}
               </Button>
             </div>
           </CardHeader>
@@ -371,11 +407,11 @@ const Dashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Destino</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Fecha</TableHead>
+                    <TableHead>{t('client')}</TableHead>
+                    <TableHead>{t('destination')}</TableHead>
+                    <TableHead>{t('value')}</TableHead>
+                    <TableHead>{t('status')}</TableHead>
+                    <TableHead>{t('date')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -385,9 +421,20 @@ const Dashboard = () => {
                       <TableCell>{presupuesto.destino}</TableCell>
                       <TableCell>€{presupuesto.valor.toLocaleString()}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getEstadoColor(presupuesto.estado)}>
-                          {presupuesto.estado}
-                        </Badge>
+                        <Select value={presupuesto.estado} onValueChange={(nuevoEstado) => handleStatusChange(presupuesto.id, nuevoEstado)}>
+                          <SelectTrigger className="w-[120px] focus:ring-0 border-none p-0 h-auto bg-transparent">
+                            <SelectValue asChild>
+                              <Badge variant="outline" className={`text-xs ${getEstadoColor(presupuesto.estado)}`}>
+                                {presupuesto.estado}
+                              </Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ESTADOS.map(estado => (
+                              <SelectItem key={estado.value} value={estado.value}>{estado.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>{presupuesto.fecha}</TableCell>
                     </TableRow>
@@ -399,7 +446,7 @@ const Dashboard = () => {
             {/* Paginación */}
             <div className="flex items-center justify-between px-2 py-4">
               <div className="text-sm text-muted-foreground">
-                Mostrando {(currentPageSafe - 1) * itemsPerPage + 1} a {Math.min(currentPageSafe * itemsPerPage, presupuestosFiltrados.length)} de {presupuestosFiltrados.length} presupuestos
+                {t('showing')} {(currentPageSafe - 1) * itemsPerPage + 1} {t('to')} {Math.min(currentPageSafe * itemsPerPage, presupuestosFiltrados.length)} {t('of')} {presupuestosFiltrados.length} {t('budgets_lower')}
               </div>
               <div className="flex items-center space-x-2">
                 <Button
@@ -409,7 +456,7 @@ const Dashboard = () => {
                   disabled={currentPage === 1}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Anterior
+                  {t('previous')}
                 </Button>
                 
                 <div className="flex items-center space-x-1">
@@ -451,7 +498,7 @@ const Dashboard = () => {
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                 >
-                  Siguiente
+                  {t('next')}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -463,7 +510,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">Alertas Urgentes</h2>
+              <h2 className="text-lg font-semibold">{t('urgent_alerts')}</h2>
               <Badge variant="destructive" className="rounded-full px-2">
                 {data.alertas.length}
               </Badge>
@@ -476,18 +523,18 @@ const Dashboard = () => {
                   <p className="font-medium text-sm">{alerta.nombre || alerta.cliente || 'Cliente sin nombre'}</p>
                   <p className="text-xs text-muted-foreground">
                     {alerta.tipo === 'sinRespuesta' 
-                      ? `${alerta.dias} días sin respuesta` 
-                      : 'Presupuesto vence pronto'}
+                      ? t('days_no_response', { count: alerta.dias })
+                      : t('budget_due_soon')}
                   </p>
                 </div>
                 <Button variant="ghost" size="sm">
                   <Clock className="h-4 w-4 mr-1" />
-                  Recordar
+                  {t('remind')}
                 </Button>
               </div>
             )) : (
               <div className="p-4 text-center text-muted-foreground">
-                No hay alertas pendientes
+                {t('no_alerts')}
               </div>
             )}
           </CardContent>
@@ -499,15 +546,15 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-flowmatic-teal" />
-            Recomendación IA
+            {t('ai_recommendation')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-relaxed mb-4">
-            {data.recomendacionAI || "Recomendaciones basadas en tus datos aparecerán aquí."}
+            {data.recomendacionAI || t('ai_default_message')}
           </p>
           <Button variant="teal" className="w-full sm:w-auto">
-            Aplicar sugerencia
+            {t('apply_suggestion')}
             <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </CardContent>
