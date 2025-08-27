@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { db, auth } from "@/lib/firebase";
-import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 
 interface Cliente {
   id: string;
@@ -62,26 +63,31 @@ const Client = () => {
     estado: "pendiente"
   });
   const { toast } = useToast();
+  const { uid, getSubcollectionRef } = useAuth();
 
   useEffect(() => {
-    cargarClientes();
-  }, []);
+    // Suscripción en tiempo real a /users/{uid}/clientes
+    if (!uid) return;
+    const colRef = getSubcollectionRef("clientes");
+    if (!colRef) return;
+    const q = query(colRef, orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const list: Cliente[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+      setClientes(list);
+    }, (err) => {
+      console.error("Error suscribiendo clientes:", err);
+      toast({ title: "Error", description: "No se pudieron cargar los clientes", variant: "destructive" });
+    });
+    return () => unsub();
+  }, [uid, getSubcollectionRef]);
 
   const cargarClientes = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "users"));
-      const clientesData: Cliente[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.clientes) {
-          data.clientes.forEach((cliente: any) => {
-            clientesData.push({
-              id: cliente.id || doc.id,
-              ...cliente
-            });
-          });
-        }
-      });
+      if (!uid) return;
+      const colRef = getSubcollectionRef("clientes");
+      if (!colRef) return;
+      const querySnapshot = await getDocs(colRef);
+      const clientesData: Cliente[] = querySnapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
       setClientes(clientesData);
     } catch (error) {
       console.error("Error cargando clientes:", error);
@@ -104,34 +110,37 @@ const Client = () => {
     }
 
     try {
-      const nuevoCliente = {
-        ...formData,
-        id: editingClient?.id || Date.now().toString()
-      };
-
-      if (auth.currentUser) {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        
-        if (editingClient) {
-          // Actualizar cliente existente
-          setClientes(clientes.map(c => c.id === editingClient.id ? nuevoCliente : c));
-        } else {
-          // Agregar nuevo cliente
-          await addDoc(collection(db, "users"), {
-            userId: auth.currentUser.uid,
-            clientes: [nuevoCliente]
-          });
-          setClientes([...clientes, nuevoCliente]);
-        }
-
-        toast({
-          title: "Éxito",
-          description: editingClient ? "Cliente actualizado" : "Cliente agregado",
-        });
-        
-        resetForm();
-        setIsDialogOpen(false);
+      if (!uid) {
+        toast({ title: "Sesión requerida", description: "Inicia sesión para guardar clientes.", variant: "destructive" });
+        return;
       }
+
+      // Nunca enviar el campo `id` a Firestore; sólo usarlo localmente en el estado de la app
+      const payloadBase = { ...formData } as Omit<Cliente, "id"> & any;
+
+      const colRef = getSubcollectionRef("clientes");
+      if (!colRef) throw new Error("No se pudo acceder a la subcolección de clientes");
+
+      if (editingClient) {
+        // Actualizar cliente existente en /users/{uid}/clientes/{id}
+        await updateDoc(
+          doc(db, "users", uid, "clientes", editingClient.id),
+          { ...payloadBase, updatedAt: new Date() } as any
+        );
+        setClientes(clientes.map((c) => (c.id === editingClient.id ? ({ ...payloadBase, id: editingClient.id } as Cliente) : c)));
+      } else {
+        // Agregar nuevo cliente en /users/{uid}/clientes (sin campo id)
+        const docRef = await addDoc(colRef, { ...payloadBase, createdAt: new Date(), updatedAt: new Date() } as any);
+        setClientes([...clientes, ({ ...payloadBase, id: docRef.id } as Cliente)]);
+      }
+
+      toast({
+        title: "Éxito",
+        description: editingClient ? "Cliente actualizado" : "Cliente agregado",
+      });
+
+      resetForm();
+      setIsDialogOpen(false);
     } catch (error) {
       console.error("Error guardando cliente:", error);
       toast({
@@ -144,11 +153,10 @@ const Client = () => {
 
   const eliminarCliente = async (id: string) => {
     try {
-      setClientes(clientes.filter(c => c.id !== id));
-      toast({
-        title: "Éxito",
-        description: "Cliente eliminado",
-      });
+      if (!uid) return;
+      await deleteDoc(doc(db, "users", uid, "clientes", id));
+      setClientes(clientes.filter((c) => c.id !== id));
+      toast({ title: "Éxito", description: "Cliente eliminado" });
     } catch (error) {
       console.error("Error eliminando cliente:", error);
       toast({

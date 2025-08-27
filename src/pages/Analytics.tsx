@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,35 +14,90 @@ import {
   Plane
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
+
+interface Cliente {
+  id: string;
+  nombre?: string;
+  email?: string;
+  destino: {
+    pais: string;
+    valor: number;
+    fecha: string; // formato YYYY-MM-DD
+  };
+}
 
 const Analytics = () => {
   const [periodo, setPeriodo] = useState("mes");
   const [destino, setDestino] = useState("todos");
   const [tipoCliente, setTipoCliente] = useState("todos");
+  const { uid } = useAuth();
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock data para las visualizaciones
-  const destinosPopulares = [
-    { name: "París", viajes: 45, valoracion: 4.8 },
-    { name: "Barcelona", viajes: 38, valoracion: 4.7 },
-    { name: "Roma", viajes: 32, valoracion: 4.6 },
-    { name: "Londres", viajes: 28, valoracion: 4.5 },
-    { name: "Ámsterdam", viajes: 22, valoracion: 4.4 }
-  ];
+  useEffect(() => {
+    const fetchClientes = async () => {
+      try {
+        if (!uid) return;
+        const ref = collection(db, 'users', uid, 'clientes');
+        const snap = await getDocs(ref);
+        const docs: Cliente[] = snap.docs.map((d) => {
+          const data: any = d.data();
+          const dest = data.destino || {};
+          return {
+            id: d.id,
+            nombre: data.nombre || data.email || 'Cliente',
+            destino: {
+              pais: dest.pais || 'Sin destino',
+              valor: Number(dest.valor) || 0,
+              fecha: dest.fecha || '',
+            },
+          } as Cliente;
+        });
+        setClientes(docs);
+      } catch (e: any) {
+        console.error('Error cargando analytics', e);
+        setError(e?.message || 'Error desconocido');
+      }
+    };
+    fetchClientes();
+  }, [uid]);
 
-  const evolucionTemporal = [
-    { mes: "Ene", viajes: 45, valoracion: 125000 },
-    { mes: "Feb", viajes: 52, valoracion: 148000 },
-    { mes: "Mar", viajes: 61, valoracion: 172000 },
-    { mes: "Abr", viajes: 38, valoracion: 98000 },
-    { mes: "May", viajes: 67, valoracion: 189000 },
-    { mes: "Jun", viajes: 73, valoracion: 205000 }
-  ];
+  const monthLabel = (m: number) => ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][m] || '';
 
-  const composicionViajes = [
-    { tipo: "Individual", cantidad: 125, porcentaje: 35 },
-    { tipo: "Pareja", cantidad: 167, porcentaje: 47 },
-    { tipo: "Familia", cantidad: 64, porcentaje: 18 }
-  ];
+  // Destinos Populares desde Firestore (top 5)
+  const destinosPopulares = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of clientes) {
+      const pais = (c.destino?.pais || 'Sin destino').trim();
+      counts.set(pais, (counts.get(pais) || 0) + 1);
+    }
+    return Array.from(counts.entries())
+      .map(([name, viajes]) => ({ name, viajes }))
+      .sort((a, b) => b.viajes - a.viajes)
+      .slice(0, 5)
+      .map((item, idx) => ({ ...item, valoracion: Math.max(4.4, 4.9 - idx * 0.1) }));
+  }, [clientes]);
+
+  // Evolución temporal y valoración total por mes
+  const evolucionTemporal = useMemo(() => {
+    const byMonth = new Map<number, { viajes: number; valor: number }>();
+    for (const c of clientes) {
+      const f = c.destino?.fecha || '';
+      const parts = f.split('-');
+      if (parts.length >= 2) {
+        const m = Math.max(0, Math.min(11, Number(parts[1]) - 1));
+        const prev = byMonth.get(m) || { viajes: 0, valor: 0 };
+        byMonth.set(m, { viajes: prev.viajes + 1, valor: prev.valor + (Number(c.destino?.valor) || 0) });
+      }
+    }
+    return Array.from({ length: 12 }, (_, m) => {
+      const v = byMonth.get(m) || { viajes: 0, valor: 0 };
+      return { mes: monthLabel(m), viajes: v.viajes, valoracion: v.valor };
+    });
+  }, [clientes]);
 
   return (
     <div className="space-y-6">
@@ -140,7 +195,7 @@ const Analytics = () => {
                   </div>
                   <div className="text-right">
                     <Badge variant="secondary" className="mb-1">
-                      ⭐ {destino.valoracion}
+                      ⭐ {destino.valoracion.toFixed(1)}
                     </Badge>
                     <div className="w-24 bg-muted rounded-full h-2">
                       <div 
@@ -219,7 +274,7 @@ const Analytics = () => {
                     <div key={data.mes} className="flex flex-col items-center gap-2">
                       <div 
                         className="bg-gradient-flowmatic rounded-t-lg w-8 transition-all duration-300 hover:scale-105"
-                        style={{ height: `${(data.viajes / Math.max(...evolucionTemporal.map(d => d.viajes))) * 200}px` }}
+                        style={{ height: `${(data.viajes / Math.max(...evolucionTemporal.map(d => d.viajes || 0))) * 200}px` }}
                       />
                       <span className="text-xs font-medium">{data.mes}</span>
                       <Badge variant="secondary" className="text-xs">
@@ -238,7 +293,7 @@ const Analytics = () => {
                     <div key={data.mes} className="flex flex-col items-center gap-2">
                       <div 
                         className="bg-flowmatic-teal rounded-t-lg w-8 transition-all duration-300 hover:scale-105"
-                        style={{ height: `${(data.valoracion / Math.max(...evolucionTemporal.map(d => d.valoracion))) * 200}px` }}
+                        style={{ height: `${(data.valoracion / Math.max(...evolucionTemporal.map(d => d.valoracion || 0))) * 200}px` }}
                       />
                       <span className="text-xs font-medium">{data.mes}</span>
                       <Badge variant="secondary" className="text-xs">
@@ -271,16 +326,16 @@ const Analytics = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {composicionViajes.map((tipo) => (
-                <div key={tipo.tipo} className="space-y-2">
+              {evolucionTemporal.map((tipo) => (
+                <div key={tipo.mes} className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="font-medium">{tipo.tipo}</span>
-                    <span className="text-muted-foreground">{tipo.cantidad} viajes ({tipo.porcentaje}%)</span>
+                    <span className="font-medium">{tipo.mes}</span>
+                    <span className="text-muted-foreground">{tipo.viajes} viajes</span>
                   </div>
                   <div className="w-full bg-muted rounded-full h-2">
                     <div 
                       className="bg-gradient-flowmatic h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${tipo.porcentaje}%` }}
+                      style={{ width: `${(tipo.viajes / Math.max(...evolucionTemporal.map(d => d.viajes || 0))) * 100}%` }}
                     />
                   </div>
                 </div>

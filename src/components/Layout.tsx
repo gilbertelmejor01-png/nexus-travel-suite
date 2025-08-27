@@ -1,5 +1,5 @@
 import { useAuthState } from "react-firebase-hooks/auth";
-import { Navigate } from "react-router-dom";
+import { Navigate, Outlet } from "react-router-dom";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { auth } from "@/lib/firebase";
@@ -31,10 +31,8 @@ export function Layout({ children }: LayoutProps) {
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
-        <main className="flex-1 overflow-auto">
-          <div className="p-6">
-            {children}
-          </div>
+        <main className="flex-1 overflow-auto p-6">
+          <Outlet />
         </main>
       </div>
     </SidebarProvider>

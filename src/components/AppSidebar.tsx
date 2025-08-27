@@ -38,8 +38,9 @@ const navigationItems = [
   { title: "cliente", url: "/cliente", icon: User },
   { title: "Creación intinerario", url: "/manual-creation", icon: Plane },
   { title: "Historial Unificado", url: "/history", icon: History },
-  { title: "Previsualización", url: "/preview", icon: Eye },
+  
   { title: "Perfil", url: "/perfil", icon: User },
+
 ];
 
 export function AppSidebar() {

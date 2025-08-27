@@ -24,9 +24,9 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { db, auth } from "@/lib/firebase";
-import { collection, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { useAuthState } from "react-firebase-hooks/auth";
+import { db } from "@/lib/firebase";
+import { collection, getDocs, Timestamp } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 
 interface Cliente {
   id: string;
@@ -58,151 +58,138 @@ const Dashboard = () => {
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [user, userLoading] = useAuthState(auth);
+  const { uid } = useAuth();
 
   useEffect(() => {
     const fetchClientes = async () => {
       try {
-        if (!user) {
-          setLoading(false);
+        if (!uid) {
+          setLoading(true);
           return;
         }
-        
         setLoading(true);
-        const clientesRef = collection(db, 'users');
-        const q = query(
-          clientesRef,
-          where('userId', '==', user.uid) // Only fetch data for the logged-in user
-        );
-        const querySnapshot = await getDocs(q);
-        
-        const clientesData: Cliente[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          clientesData.push({ 
-            id: doc.id, 
-            nombre: data.displayName || data.email || 'Cliente sin nombre',
+        // Leer de subcolección: /users/{uid}/clientes
+        const clientesRef = collection(db, 'users', uid, 'clientes');
+        const snap = await getDocs(clientesRef);
+        const clientesData: Cliente[] = snap.docs.map((d) => {
+          const data: any = d.data();
+          const createdAt: Timestamp | undefined = data.createdAt;
+          return {
+            id: d.id,
             email: data.email,
             destino: data.destino || { pais: 'Sin destino', valor: 0, fecha: '' },
-            estado: data.estado || 'pendiente',
-            fechaCreacion: data.fechaCreacion,
-            presupuestoVence: data.presupuestoVence
-          } as Cliente);
+            estado: (data.estado || 'pendiente') as Cliente['estado'],
+            fechaCreacion: createdAt,
+          } as Cliente;
         });
 
-        // Calculate KPIs
+        // KPIs y métricas
         const now = new Date();
         const thirtyDaysAgo = new Date(now);
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-        const nuevosClientes = clientesData.filter(cliente => {
-          const fechaCreacion = cliente.fechaCreacion?.toDate();
-          return fechaCreacion && fechaCreacion >= thirtyDaysAgo;
+        const nuevosClientes = clientesData.filter((c) => {
+          const fc = c.fechaCreacion?.toDate?.();
+          return !!fc && fc >= thirtyDaysAgo;
         });
 
-        const viajesActivos = clientesData.filter(cliente => 
-          ['firmado', 'pago'].includes(cliente.estado)
-        ).length;
+        const viajesActivos = clientesData.filter((c) => ['firmado', 'pago'].includes(c.estado)).length;
+        const presupuestosPendientes = clientesData.filter((c) => ['pendiente', 'revision'].includes(c.estado)).length;
+        const presupuestosCompletados = clientesData.filter((c) => ['firmado', 'pago', 'finalizado'].includes(c.estado)).length;
+        const valoracionTotal = clientesData.reduce((sum, c) => sum + (Number(c.destino?.valor) || 0), 0);
 
-        const presupuestosPendientes = clientesData.filter(cliente => 
-          ['pendiente', 'revision'].includes(cliente.estado)
-        ).length;
-
-        const presupuestosCompletados = clientesData.filter(cliente => 
-          ['firmado', 'pago', 'finalizado'].includes(cliente.estado)
-        ).length;
-
-        const valoracionTotal = clientesData.reduce((sum, cliente) => 
-          sum + (cliente.destino?.valor || 0), 0
-        );
-
-        // Generate alerts
+        // Alertas: pendientes o revisión con más de 3 días
         const alertas = clientesData
-          .filter(cliente => {
-            if (cliente.estado === 'pendiente' || cliente.estado === 'revision') {
-              const fechaCreacion = cliente.fechaCreacion?.toDate ? cliente.fechaCreacion.toDate() : new Date();
-              if (fechaCreacion) {
-                const diasSinRespuesta = Math.floor((now.getTime() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24));
-                return diasSinRespuesta >= 3; // Show alerts for clients waiting more than 3 days
-              }
-            }
-            return false;
-          })
-          .map(cliente => {
-            const fechaCreacion = cliente.fechaCreacion?.toDate ? cliente.fechaCreacion.toDate() : new Date();
+          .filter((c) => ['pendiente', 'revision'].includes(c.estado))
+          .map((c) => {
+            const fc = c.fechaCreacion?.toDate?.() || new Date();
+            const dias = Math.floor((now.getTime() - fc.getTime()) / (1000 * 60 * 60 * 24));
             return {
-              id: cliente.id,
-              nombre: cliente.nombre || 'Cliente sin nombre',
+              id: c.id,
+              nombre: c.email || 'Cliente sin nombre',
               tipo: 'sinRespuesta',
-              dias: Math.floor((now.getTime() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24)),
-              presupuestoVence: cliente.presupuestoVence?.toDate ? cliente.presupuestoVence.toDate() : null,
-              cliente: cliente.nombre || 'Cliente sin nombre' // Add this line to fix the alert display
+              dias,
+              presupuestoVence: null,
+              cliente: c.email || 'Cliente sin nombre',
             };
           })
+          .filter((a) => a.dias >= 3)
           .sort((a, b) => b.dias - a.dias)
-          .slice(0, 3); // Show only top 3 alerts
+          .slice(0, 3);
 
-        // Update state
+        // Tabla: últimos presupuestos por fechaCreacion
+        const ultimos = clientesData
+          .slice()
+          .sort((a, b) => {
+            const da = a.fechaCreacion?.toDate?.() || new Date(0);
+            const dbb = b.fechaCreacion?.toDate?.() || new Date(0);
+            return dbb.getTime() - da.getTime();
+          })
+          .slice(0, 5)
+          .map((c) => ({
+            id: c.id,
+            cliente: c.email || 'Cliente sin nombre',
+            destino: c.destino?.pais || 'Sin destino',
+            valor: Number(c.destino?.valor) || 0,
+            estado: c.estado,
+            fecha: c.fechaCreacion?.toDate?.().toISOString().split('T')[0] || (c.destino?.fecha || 'Sin fecha'),
+          }));
+
         setData({
           kpis: {
             viajesActivos: { count: viajesActivos, change: 15.2 },
-            clientesUnicos: { 
-              total: clientesData.length, 
-              nuevos: nuevosClientes.length, 
-              recurrentes: clientesData.length - nuevosClientes.length 
+            clientesUnicos: {
+              total: clientesData.length,
+              nuevos: nuevosClientes.length,
+              recurrentes: Math.max(0, clientesData.length - nuevosClientes.length),
             },
-            presupuestos: { 
-              total: clientesData.length, 
-              completados: presupuestosCompletados, 
-              pendientes: presupuestosPendientes 
+            presupuestos: {
+              total: clientesData.length,
+              completados: presupuestosCompletados,
+              pendientes: presupuestosPendientes,
             },
             valoracionTotal,
           },
           alertas,
-          ultimosPresupuestos: clientesData
-            .sort((a, b) => {
-              const dateA = a.fechaCreacion?.toDate() || new Date(0);
-              const dateB = b.fechaCreacion?.toDate() || new Date(0);
-              return dateB.getTime() - dateA.getTime();
-            })
-            .slice(0, 5)
-            .map(cliente => ({
-              id: cliente.id,
-              cliente: cliente.nombre || 'Cliente sin nombre',
-              destino: cliente.destino?.pais || 'Sin destino',
-              valor: cliente.destino?.valor || 0,
-              estado: cliente.estado,
-              fecha: cliente.fechaCreacion?.toDate().toISOString().split('T')[0] || 'Sin fecha'
-            }))
+          ultimosPresupuestos: ultimos,
         });
-        
+
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching clientes:", err);
-        setError(err.message);
+        console.error('Error fetching clientes:', err);
+        setError((err as any)?.message || 'Error desconocido');
         setLoading(false);
       }
     };
-
     fetchClientes();
-  }, [user]); // Re-run when user changes
+  }, [uid]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
   const itemsPerPage = 10;
 
-  if (userLoading) return <div className="p-8 text-center">Verificando autenticación...</div>;
-  if (!user) return <div className="p-8 text-center">Por favor inicia sesión para ver esta página.</div>;
+  if (!uid) return <div className="p-8 text-center">Cargando datos...</div>;
   if (loading) return <div className="p-8 text-center">Cargando datos...</div>;
   if (error) return <div className="p-8 text-center text-red-500">Error al cargar los datos: {error}</div>;
 
   const { kpis, alertas, ultimosPresupuestos } = data;
 
   // Filtrar presupuestos
+  const mapFiltroToEstado = (val: string) => {
+    switch (val) {
+      case 'Pendiente': return 'pendiente';
+      case 'En revisión': return 'revision';
+      case 'Firmado': return 'firmado';
+      case 'Perdido': return 'perdido'; // no mapeado en BD; quedará sin coincidencias
+      case 'Vence hoy': return 'vence_hoy'; // no mapeado en BD
+      default: return 'todos';
+    }
+  };
   const presupuestosFiltrados = (data.ultimosPresupuestos || []).filter(presupuesto => {
     if (!presupuesto) return false;
-    const matchEstado = filtroEstado === "todos" || presupuesto.estado === filtroEstado;
+    const filtroEstadoBD = mapFiltroToEstado(filtroEstado);
+    const matchEstado = filtroEstadoBD === "todos" || presupuesto.estado === filtroEstadoBD;
     const cliente = typeof presupuesto.cliente === 'string' ? presupuesto.cliente : '';
     const destino = typeof presupuesto.destino === 'string' ? presupuesto.destino : '';
     const matchBusqueda = cliente.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -225,11 +212,11 @@ const Dashboard = () => {
 
   const getEstadoColor = (estado: string) => {
     switch (estado) {
-      case "Firmado": return "text-success";
-      case "Vence hoy": return "text-destructive";
-      case "Perdido": return "text-muted-foreground";
-      case "Pendiente": return "text-flowmatic-medium-blue";
-      case "En revisión": return "text-flowmatic-teal";
+      case "firmado": return "text-success";
+      case "pago": return "text-success";
+      case "finalizado": return "text-muted-foreground";
+      case "pendiente": return "text-flowmatic-medium-blue";
+      case "revision": return "text-flowmatic-teal";
       default: return "text-foreground";
     }
   };

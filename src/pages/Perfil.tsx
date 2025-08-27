@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Upload, Image, Link, Save, Cpu } from "lucide-react";
+import { Building2, Upload, Image, Save, Cpu } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 
 interface PerfilEmpresa {
   nombreEmpresa: string;
@@ -22,6 +23,7 @@ interface PerfilEmpresa {
     creacionItinerario: string;
     itinerarioRapido: string;
     analiticasIA: string;
+    conversacion: string; // Nuevo campo
   };
 }
 
@@ -32,42 +34,44 @@ export default function Perfil() {
       tipo: "url",
       valor: ""
     },
-    copyright: "© 2025 Flowmatic – L'IA au service des Pros du Tourisme",
+    copyright: " 2025 Flowmatic – L'IA au service des Pros du Tourisme",
     conexionesIA: {
       creacionItinerario: "",
       itinerarioRapido: "",
-      analiticasIA: ""
+      analiticasIA: "",
+      conversacion: "" // Nuevo campo inicializado
     }
   });
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [guardando, setGuardando] = useState(false);
   const { toast } = useToast();
+  const { uid } = useAuth();
 
   useEffect(() => {
     cargarPerfil();
-  }, []);
+  }, [uid]);
 
-  const cargarPerfil = async () => {
+ const cargarPerfil = async () => {
     try {
-      if (auth.currentUser) {
-        const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          if (data.perfil) {
-            setPerfil(prev => ({
-              ...prev,
-              ...data.perfil,
-              conexionesIA: {
-                creacionItinerario: data.perfil.conexionesIA?.creacionItinerario || "",
-                itinerarioRapido: data.perfil.conexionesIA?.itinerarioRapido || "",
-                analiticasIA: data.perfil.conexionesIA?.analiticasIA || "",
-                ...data.perfil.conexionesIA
-              }
-            }));
-            setLogoPreview(data.perfil.logo.valor);
-          }
-        }
+      if (!uid) return;
+      const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
+      const perfilSnap = await getDoc(perfilDocRef);
+      if (perfilSnap.exists()) {
+        const data: any = perfilSnap.data();
+        setPerfil(prev => ({
+          ...prev,
+          ...data,
+          conexionesIA: {
+            creacionItinerario: data?.conexionesIA?.creacionItinerario || "",
+            itinerarioRapido: data?.conexionesIA?.itinerarioRapido || "",
+            analiticasIA: data?.conexionesIA?.analiticasIA || "",
+            conversacion: data?.conexionesIA?.conversacion || "", // Cargar nuevo campo
+            ...data?.conexionesIA,
+          },
+        }));
+        if (data?.logo?.valor) setLogoPreview(data.logo.valor);
       }
     } catch (error) {
       console.error("Error cargando perfil:", error);
@@ -91,30 +95,22 @@ export default function Perfil() {
 
     setGuardando(true);
     try {
-      if (auth.currentUser) {
-        const userRef = doc(db, "users", auth.currentUser.uid);
-        
-        // Verificar si el documento existe
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          // Actualizar documento existente
-          await updateDoc(userRef, {
-            perfil: perfil
-          });
-        } else {
-          // Crear nuevo documento
-          await setDoc(userRef, {
-            perfil: perfil,
-            userId: auth.currentUser.uid
-          });
-        }
-
-        toast({
-          title: "Éxito",
-          description: "Perfil guardado correctamente",
-        });
+      if (!uid) {
+        toast({ title: "Sesión requerida", description: "Inicia sesión para guardar tu perfil.", variant: "destructive" });
+        return;
       }
+      const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
+      const exists = (await getDoc(perfilDocRef)).exists();
+      if (exists) {
+        await updateDoc(perfilDocRef, { ...perfil, updatedAt: new Date() } as any);
+      } else {
+        await setDoc(perfilDocRef, { ...perfil, createdAt: new Date(), updatedAt: new Date() } as any);
+      }
+
+      toast({
+        title: "Éxito",
+        description: "Perfil guardado correctamente",
+      });
     } catch (error) {
       console.error("Error guardando perfil:", error);
       toast({
@@ -148,7 +144,6 @@ export default function Perfil() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validar tipo de archivo
       if (!file.type.includes('image/')) {
         toast({
           title: "Error",
@@ -158,7 +153,6 @@ export default function Perfil() {
         return;
       }
 
-      // Validar tamaño (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Error",
@@ -168,7 +162,6 @@ export default function Perfil() {
         return;
       }
 
-      // Crear URL preview
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataURL = e.target?.result as string;
@@ -224,7 +217,7 @@ export default function Perfil() {
                 id="copyright"
                 value={perfil.copyright}
                 onChange={(e) => setPerfil({...perfil, copyright: e.target.value})}
-                placeholder="© 2025 Tu Empresa – Descripción"
+                placeholder=" 2025 Tu Empresa – Descripción"
                 rows={3}
               />
             </div>
@@ -377,6 +370,17 @@ export default function Perfil() {
                 value={perfil.conexionesIA?.analiticasIA || ""}
                 onChange={(e) => handleConexionIAChange("analiticasIA", e.target.value)}
                 placeholder="https://api.ejemplo.com/analiticas-ia"
+              />
+            </div>
+            <div>
+              <Label htmlFor="conversacion" className="mb-2 block">
+                URL informacion  (plantilla)
+              </Label>
+              <Input
+                id="conversacion"
+                value={perfil.conexionesIA?.conversacion || ""}
+                onChange={(e) => handleConexionIAChange("conversacion", e.target.value)}
+                placeholder="https://firestore.googleapis.com/v1/projects/..."
               />
             </div>
           </div>

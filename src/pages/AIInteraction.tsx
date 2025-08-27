@@ -525,14 +525,7 @@ const AIInteraction = () => {
             <FileText className="h-4 w-4" />
             Subir PDF
           </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Captura Email
-          </TabsTrigger>
-          <TabsTrigger value="sheet" className="flex items-center gap-2">
-            <Sheet className="h-4 w-4" />
-            Hoja Cálculo
-          </TabsTrigger>
+          
           <TabsTrigger value="text" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
             Texto Natural
