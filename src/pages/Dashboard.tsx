@@ -551,7 +551,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-relaxed mb-4">
-            {data.recomendacionAI || t('ai_default_message')}
+            {t('ai_default_message')}
           </p>
           <Button variant="teal" className="w-full sm:w-auto">
             {t('apply_suggestion')}

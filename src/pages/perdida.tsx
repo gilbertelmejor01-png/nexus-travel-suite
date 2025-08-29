@@ -630,7 +630,10 @@ const AIInteraction = () => {
 };
 
 
-quiero que me adecues eb formato recat  y esta informacion :let result = {
+export default AIInteraction;
+
+// Estructura de datos para extraer de Firebase
+const resultStructure = {
   programme_detaille: "",
   table_itineraire_bref: [],
   prix_par_personne: "",
@@ -638,20 +641,11 @@ quiero que me adecues eb formato recat  y esta informacion :let result = {
   remarques_tarifs: "",
   inclus: [],
   non_inclus: [],
-  pays_destination: "" // nuevo campo
-}; se va a extrae de la base de datos firebse , colletion: conversacion y de autetication o id :xvbV2piJNxukwOUWODPk conversacion tsx :let data;
-try {
-  data = typeof $json.output === "string" ? JSON.parse($json.output) : $json;
-} catch (e) {
-  return [{
-    json: {
-      error: "Échec de l'analyse JSON : la sortie du AI Agent1 doit être un objet JSON valide contenant programme_detaille, table_itineraire_bref, etc. Détail : " + e.message
-    }
-  }];
-}
+  pays_destination: ""
+};
 
-// Funciones existentes (sin cambios)
-const extractHotels = () => {
+// Funciones para manejo de datos de viaje
+const extractHotels = (data: any) => {
   const seen = new Set();
   return (data.table_itineraire_bref || [])
     .filter(entry => entry.hôtel && !seen.has(entry.hôtel) && seen.add(entry.hôtel))
@@ -680,12 +674,12 @@ const renderTable = (rows) => Array.isArray(rows) ? rows.map(r => `<tr><td>${r.j
 const renderList = (items) => Array.isArray(items) ? items.map(i => `<li>${i}</li>`).join("") : "";
 
 // HTML optimizado para evitar páginas vacías
-const html = `
+const generateHTML = (data: any) => `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Immersion au ${data.pays_destination || "Destination"}</title>
+  <title>Immersion au ${data?.pays_destination || "Destination"}</title>
   <style>
     /* TUS ESTILOS EXACTAMENTE COMO LOS TENÍAS */
     * {
@@ -928,7 +922,7 @@ const html = `
           </tr>
         </thead>
         <tbody>
-          ${renderTable(data.table_itineraire_bref || [])}
+          ${renderTable(data?.table_itineraire_bref || [])}
         </tbody>
       </table>
       <div class="note">
@@ -939,7 +933,7 @@ const html = `
     <div class="section programme-detaille">
       <h2>PROGRAMME DÉTAILLÉ</h2>
       <img src="https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg" alt="Programme détaillé">
-      ${data.programme_detaille || "<p>Description du programme à venir</p>"}
+      ${data?.programme_detaille || "<p>Description du programme à venir</p>"}
     </div>
 
     <div class="section">
@@ -949,15 +943,15 @@ const html = `
           <th>NON INCLUS</th>
         </tr>
         <tr>
-          <td><ul>${renderList(data.inclus || [])}</ul></td>
-          <td><ul>${renderList(data.non_inclus || [])}</ul></td>
+          <td><ul>${renderList(data?.inclus || [])}</ul></td>
+          <td><ul>${renderList(data?.non_inclus || [])}</ul></td>
         </tr>
       </table>
       
       <div class="price-box">
-        <p><strong>TARIF par personne : ${data.prix_par_personne || "à confirmer"}</strong></p>
-        <p>Chambre simple : ${data.chambre_simple || "sur demande"}</p>
-        <p>Remarques : ${data.remarques_tarifs || "aucune"}</p>
+        <p><strong>TARIF par personne : ${data?.prix_par_personne || "à confirmer"}</strong></p>
+        <p>Chambre simple : ${data?.chambre_simple || "sur demande"}</p>
+        <p>Remarques : ${data?.remarques_tarifs || "aucune"}</p>
       </div>
     </div>
 
@@ -967,7 +961,7 @@ const html = `
       <p>Hébergements sélectionnés pour leur <strong>confort</strong>, <strong>charme</strong> et <strong>localisation</strong>.</p>
       
       <ul>
-        ${renderHotels(extractHotels())}
+        ${renderHotels(extractHotels(data))}
       </ul>
       
       <div class="note">
@@ -982,9 +976,3 @@ const html = `
 </body>
 </html>
 `;
-
-return [{
-  json: {
-    html
-  }
-}];

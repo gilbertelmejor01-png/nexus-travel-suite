@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -48,22 +48,18 @@ const App = () => {
         <Route path="/" element={currentUser ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />} />
 
         {/* Protected routes */}
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/ai-interaction" element={<AIInteraction />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/comparisons" element={<Comparisons />} />
-          <Route path="/manual-creation" element={<ManualCreation />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/preview" element={<Preview />} />
-          <Route path="/perfil" element={<Perfil />} />
-          <Route path="/cliente" element={<Client />} />
-        </Route>
+        <Route path="/dashboard" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <Route path="/ai-interaction" element={<ProtectedRoute><Layout><AIInteraction /></Layout></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><Layout><Analytics /></Layout></ProtectedRoute>} />
+        <Route path="/comparisons" element={<ProtectedRoute><Layout><Comparisons /></Layout></ProtectedRoute>} />
+        <Route path="/manual-creation" element={<ProtectedRoute><Layout><ManualCreation /></Layout></ProtectedRoute>} />
+        <Route path="/history" element={<ProtectedRoute><Layout><History /></Layout></ProtectedRoute>} />
+        <Route path="/preview" element={<ProtectedRoute><Layout><Preview /></Layout></ProtectedRoute>} />
+        <Route path="/perfil" element={<ProtectedRoute><Layout><Perfil /></Layout></ProtectedRoute>} />
+        <Route path="/cliente" element={<ProtectedRoute><Layout><Client /></Layout></ProtectedRoute>} />
 
-        {/* Admin routes - example with role-based protection */}
-        <Route element={<ProtectedRoute requiredRole="admin"><Layout /></ProtectedRoute>}>
-          <Route path="/admin" element={<div>Admin Panel</div>} />
-        </Route>
+        {/* Admin routes */}
+        <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><Layout><div>Admin Panel</div></Layout></ProtectedRoute>} />
 
         {/* Error pages */}
         <Route path="/unauthorized" element={<Unauthorized />} />
