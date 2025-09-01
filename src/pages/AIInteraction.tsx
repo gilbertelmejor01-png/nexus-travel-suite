@@ -27,7 +27,6 @@ import { doc, getDoc } from "firebase/firestore";
 import Modal2 from "../components/Modal2";
 import Previa, { VoyageData } from "../components/Previa";
 import Modal from "../components/Modal";
-import { useTranslation } from 'react-i18next';
 
 interface ProcessedData {
   destino: string;
@@ -57,9 +56,9 @@ const AIInteraction = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [paisOrigen, setPaisOrigen] = useState("");
   const [imagenOrigen, setImagenOrigen] = useState<File | null>(null);
-  const { t } = useTranslation(); // Hook de traducción
 
   // Función para obtener datos de la conversación desde Firestore
+  // Modifica fetchConversacionData para obtener los datos estructurados
   const fetchConversacionData = async () => {
     console.log("🔄 Iniciando fetchConversacionData...");
     try {
@@ -75,38 +74,48 @@ const AIInteraction = () => {
           hasOutput: !!data.output,
           outputType: typeof data.output,
           dataKeys: Object.keys(data),
-          rawData: data
+          rawData: data,
         });
-        
+
         // Convertir los datos al formato VoyageData
         try {
           let parsedData: VoyageData | null = null;
-          
+
           // Verificar si los datos tienen la estructura de Firestore con fields
           if (data.fields) {
             console.log("Parseando estructura de Firestore con fields");
-            
+
             // Extraer datos de la estructura de Firestore
-            const extractStringValue = (field: any) => field?.stringValue || '';
+            const extractStringValue = (field: any) => field?.stringValue || "";
             const extractArrayValue = (field: any) => {
               try {
-                return JSON.parse(field?.stringValue || '[]');
+                return JSON.parse(field?.stringValue || "[]");
               } catch {
                 return [];
               }
             };
-            
+
             parsedData = {
-              pays_destination: extractStringValue(data.fields.pays_destination),
-              programme_detaille: extractStringValue(data.fields.programme_detaille),
-              prix_par_personne: extractStringValue(data.fields.prix_par_personne),
+              pays_destination: extractStringValue(
+                data.fields.pays_destination
+              ),
+              programme_detaille: extractStringValue(
+                data.fields.programme_detaille
+              ),
+              prix_par_personne: extractStringValue(
+                data.fields.prix_par_personne
+              ),
               chambre_simple: extractStringValue(data.fields.chambre_simple),
-              remarques_tarifs: extractStringValue(data.fields.remarques_tarifs),
+              remarques_tarifs: extractStringValue(
+                data.fields.remarques_tarifs
+              ),
               inclus: extractArrayValue(data.fields.inclus),
               non_inclus: extractArrayValue(data.fields.non_inclus),
-              table_itineraire_bref: extractArrayValue(data.fields.table_itineraire_bref)
+              table_itineraire_bref: extractArrayValue(
+                data.fields.table_itineraire_bref
+              ),
             };
-            
+
             console.log("Datos extraídos de Firestore:", parsedData);
           }
           // Intentar diferentes estructuras de datos como fallback
@@ -127,7 +136,7 @@ const AIInteraction = () => {
             // Si no hay output ni response, intentar usar los datos directamente
             // Pero necesitamos parsear los arrays que vienen como strings JSON
             const parseArrayField = (field: any) => {
-              if (typeof field === 'string') {
+              if (typeof field === "string") {
                 try {
                   return JSON.parse(field);
                 } catch {
@@ -136,62 +145,84 @@ const AIInteraction = () => {
               }
               return Array.isArray(field) ? field : [];
             };
-            
+
             parsedData = {
-              pays_destination: data.pays_destination || '',
-              programme_detaille: data.programme_detaille || '',
-              prix_par_personne: data.prix_par_personne || '',
-              chambre_simple: data.chambre_simple || '',
-              remarques_tarifs: data.remarques_tarifs || '',
+              pays_destination: data.pays_destination || "",
+              programme_detaille: data.programme_detaille || "",
+              prix_par_personne: data.prix_par_personne || "",
+              chambre_simple: data.chambre_simple || "",
+              remarques_tarifs: data.remarques_tarifs || "",
               inclus: parseArrayField(data.inclus),
               non_inclus: parseArrayField(data.non_inclus),
-              table_itineraire_bref: parseArrayField(data.table_itineraire_bref)
+              table_itineraire_bref: parseArrayField(
+                data.table_itineraire_bref
+              ),
             };
-            
+
             console.log("Datos procesados con parsing de arrays:", parsedData);
           }
 
           console.log("Datos parseados:", parsedData);
-          
+
           // Si no se pudieron parsear los datos, usar datos de prueba para verificar que el componente funciona
           if (parsedData && parsedData.programme_detaille) {
             setVoyageData(parsedData);
-            console.log("voyageData establecido correctamente con datos reales");
+            console.log(
+              "voyageData establecido correctamente con datos reales"
+            );
           } else {
-            console.log("No se pudieron parsear los datos, usando datos de prueba");
+            console.log(
+              "No se pudieron parsear los datos, usando datos de prueba"
+            );
             // Datos de prueba para verificar que el componente Previa funciona
             const testData: VoyageData = {
-              programme_detaille: "<h3>Día 1: Llegada</h3><p>Llegada al aeropuerto y traslado al hotel.</p><h3>Día 2: City Tour</h3><p>Recorrido por la ciudad histórica.</p>",
+              programme_detaille:
+                "<h3>Día 1: Llegada</h3><p>Llegada al aeropuerto y traslado al hotel.</p><h3>Día 2: City Tour</h3><p>Recorrido por la ciudad histórica.</p>",
               table_itineraire_bref: [
                 {
                   jour: "Día 1",
                   date: "15/06/2024",
                   programme: "Llegada y check-in",
                   nuit: "Hotel Central",
-                  hôtel: "Hotel Boutique Central 4*"
+                  hôtel: "Hotel Boutique Central 4*",
                 },
                 {
                   jour: "Día 2",
                   date: "16/06/2024",
                   programme: "City Tour y museos",
                   nuit: "Hotel Central",
-                  hôtel: "Hotel Boutique Central 4*"
-                }
+                  hôtel: "Hotel Boutique Central 4*",
+                },
               ],
               prix_par_personne: "€1,250",
               chambre_simple: "€200 suplemento",
               remarques_tarifs: "Precios válidos hasta diciembre 2024",
-              inclus: ["Alojamiento en hotel 4*", "Desayuno incluido", "Traslados aeropuerto", "Guía local"],
-              non_inclus: ["Vuelos internacionales", "Comidas no especificadas", "Gastos personales", "Propinas"],
-              pays_destination: "París, Francia"
+              inclus: [
+                "Alojamiento en hotel 4*",
+                "Desayuno incluido",
+                "Traslados aeropuerto",
+                "Guía local",
+              ],
+              non_inclus: [
+                "Vuelos internacionales",
+                "Comidas no especificadas",
+                "Gastos personales",
+                "Propinas",
+              ],
+              pays_destination: "París, Francia",
             };
             setVoyageData(testData);
-            console.log("Datos de prueba establecidos para verificar componente Previa");
+            console.log(
+              "Datos de prueba establecidos para verificar componente Previa"
+            );
           }
-          
+
           setConversacionData(JSON.stringify(data, null, 2));
         } catch (parseError) {
-          console.error("Error al parsear los datos de conversación:", parseError);
+          console.error(
+            "Error al parsear los datos de conversación:",
+            parseError
+          );
           setVoyageData(null);
           setConversacionData("Error al parsear los datos de conversación");
         }
@@ -234,10 +265,10 @@ const AIInteraction = () => {
 
         if (pdfFiles.length > 0) {
           const steps = [
-            { message: t('analyzing_documents'), progress: 25 },
-            { message: t('sending_pdf_webhook'), progress: 60 },
-            { message: t('processing_response'), progress: 85 },
-            { message: t('ready'), progress: 100 },
+            { message: "Analizando documentos...", progress: 25 },
+            { message: "Enviando PDF al webhook...", progress: 60 },
+            { message: "Procesando respuesta...", progress: 85 },
+            { message: "¡Listo!", progress: 100 },
           ];
 
           for (const step of steps) {
@@ -316,7 +347,7 @@ const AIInteraction = () => {
                       }
                     } else {
                       console.warn("Respuesta vacía desde n8n");
-                      setN8nResponse("⚠️ " + t('no_response_n8n'));
+                      setN8nResponse("⚠️ Sin respuesta desde n8n");
                     }
                   } catch (e) {
                     console.error("Error leyendo respuesta de n8n:", e);
@@ -348,24 +379,24 @@ const AIInteraction = () => {
 
           setProcessing(false);
           toast({
-            title: t('processing_complete'),
-            description: t('pdf_processed_successfully'),
+            title: "Procesamiento completado",
+            description: "El PDF ha sido enviado y procesado exitosamente",
           });
         } else {
           setProcessing(false);
           toast({
-            title: t('error'),
-            description: t('no_pdf_files_found'),
+            title: "Error",
+            description: "No se encontraron archivos PDF para procesar",
             variant: "destructive",
           });
         }
       } else if (activeTab === "text" && textDescription.trim()) {
         // Procesar texto natural y enviar al webhook
         const steps = [
-          { message: t('analyzing_description'), progress: 25 },
-          { message: t('sending_to_n8n'), progress: 60 },
-          { message: t('processing_response'), progress: 85 },
-          { message: t('ready'), progress: 100 },
+          { message: "Analizando descripción...", progress: 25 },
+          { message: "Enviando a n8n...", progress: 60 },
+          { message: "Procesando respuesta...", progress: 85 },
+          { message: "¡Listo!", progress: 100 },
         ];
 
         for (const step of steps) {
@@ -426,16 +457,17 @@ const AIInteraction = () => {
 
         setProcessing(false);
         toast({
-          title: t('processing_complete'),
-          description: t('description_processed_successfully'),
+          title: "Procesamiento completado",
+          description:
+            "La descripción ha sido enviada y procesada exitosamente",
         });
       } else {
         // Para otros tabs o sin contenido, mantener comportamiento original
         const steps = [
-          { message: t('analyzing_documents'), progress: 25 },
-          { message: t('extracting_data'), progress: 60 },
-          { message: t('structuring_information'), progress: 85 },
-          { message: t('ready'), progress: 100 },
+          { message: "Analizando documentos...", progress: 25 },
+          { message: "Extrayendo datos...", progress: 60 },
+          { message: "Estructurando información...", progress: 85 },
+          { message: "¡Listo!", progress: 100 },
         ];
 
         for (const step of steps) {
@@ -463,16 +495,17 @@ const AIInteraction = () => {
 
         setProcessing(false);
         toast({
-          title: t('processing_complete'),
-          description: t('data_extracted_successfully'),
+          title: "Procesamiento completado",
+          description: "Los datos han sido extraídos exitosamente",
         });
       }
     } catch (error) {
       setProcessing(false);
       console.error("Error en el procesamiento:", error);
       toast({
-        title: t('processing_error'),
-        description: t('processing_problem_try_again'),
+        title: "Error en el procesamiento",
+        description:
+          "Hubo un problema al procesar el archivo. Inténtalo de nuevo.",
         variant: "destructive",
       });
     }
@@ -487,8 +520,8 @@ const AIInteraction = () => {
     onDrop: (acceptedFiles) => {
       setFiles((prev) => [...prev, ...acceptedFiles]);
       toast({
-        title: t('files_added'),
-        description: t('files_added_count', { count: acceptedFiles.length }),
+        title: "Archivos agregados",
+        description: `${acceptedFiles.length} archivo(s) agregado(s)`,
       });
     },
   });
@@ -498,11 +531,11 @@ const AIInteraction = () => {
   };
 
   const optimizeDescription = () => {
-    const optimized = `${t('organized_trip_for_couple')}: ${textDescription}. ${t('includes_hotels_breakfast_transfers')}`;
+    const optimized = `Viaje organizado para pareja: ${textDescription}. Incluye alojamiento en hoteles 4-5 estrellas, desayuno incluido, traslados aeropuerto-hotel, y recomendaciones gastronómicas locales.`;
     setTextDescription(optimized);
     toast({
-      title: t('description_optimized'),
-      description: t('ai_improved_description'),
+      title: "Descripción optimizada",
+      description: "La IA ha mejorado tu descripción",
     });
   };
 
@@ -511,10 +544,10 @@ const AIInteraction = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          {t('ai_interaction')}
+          Interacción con IA
         </h1>
         <p className="text-muted-foreground">
-          {t('process_travel_info_ai')}
+          Procesa información de viajes usando inteligencia artificial
         </p>
       </div>
 
@@ -522,20 +555,21 @@ const AIInteraction = () => {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="pdf" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            {t('upload_pdf')}
+            Subir PDF
           </TabsTrigger>
-          
+
           <TabsTrigger value="text" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            {t('natural_text')}
+            Texto Natural
           </TabsTrigger>
         </TabsList>
-
-        <div>
-          <Button onClick={() => setItineraryModalOpen(true)}>
-            {t('create_new_itinerary')}
-          </Button>
-          <Button onClick={() => setModalOpen(true)}>{t('add_image')}</Button>
+        <div className="relative">
+          <div className="absolute bottom-12 right-0 flex justify-end gap-4">
+            <Button onClick={() => setItineraryModalOpen(true)}>
+              Crear Nuevo Itinerario
+            </Button>
+            <Button onClick={() => setModalOpen(true)}>Agregar imagen</Button>
+          </div>
         </div>
         <Modal2
           isOpen={itineraryModalOpen}
@@ -559,7 +593,7 @@ const AIInteraction = () => {
         <TabsContent value="pdf" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('upload_pdf_documents')}</CardTitle>
+              <CardTitle>Subir Documentos PDF</CardTitle>
             </CardHeader>
             <CardContent>
               <div
@@ -574,18 +608,18 @@ const AIInteraction = () => {
                 <Upload className="h-12 w-12 mx-auto mb-4 text-flowmatic-teal" />
                 <p className="text-lg font-medium mb-2">
                   {isDragActive
-                    ? t('drop_files_here')
-                    : t('drag_or_click_files')}
+                    ? "Suelta los archivos aquí"
+                    : "Arrastra archivos o haz clic"}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {t('file_limit_pdf_jpg_png')}
+                  Límite: 5 archivos (PDF, JPG, PNG) - Máx. 10MB cada uno
                 </p>
               </div>
 
               {/* Files Preview */}
               {files.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <h4 className="font-medium">{t('selected_files')}:</h4>
+                  <h4 className="font-medium">Archivos seleccionados:</h4>
                   {files.map((file, index) => (
                     <div
                       key={index}
@@ -595,7 +629,7 @@ const AIInteraction = () => {
                         <FileText className="h-4 w-4 text-flowmatic-teal" />
                         <span className="text-sm">{file.name}</span>
                         <Badge variant="secondary" className="text-xs">
-                          {(file.size / 1024 / 1024).toFixed(1)} {t('mb')}
+                          {(file.size / 1024 / 1024).toFixed(1)} MB
                         </Badge>
                       </div>
                       <Button
@@ -617,14 +651,14 @@ const AIInteraction = () => {
         <TabsContent value="email" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('email_capture')}</CardTitle>
+              <CardTitle>Captura de Email</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium">{t('associated_email')}</label>
+                <label className="text-sm font-medium">Email asociado</label>
                 <Input
                   type="email"
-                  placeholder={t('client_email_placeholder')}
+                  placeholder="cliente@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   icon={<Mail className="h-4 w-4" />}
@@ -637,9 +671,9 @@ const AIInteraction = () => {
               >
                 <input {...getInputProps()} />
                 <Image className="h-8 w-8 mx-auto mb-2 text-flowmatic-teal" />
-                <p className="font-medium">{t('upload_email_images')}</p>
+                <p className="font-medium">Subir imágenes de emails</p>
                 <p className="text-xs text-muted-foreground">
-                  {t('only_clear_email_images')}
+                  Solo imágenes claras de emails
                 </p>
               </div>
             </CardContent>
@@ -650,37 +684,38 @@ const AIInteraction = () => {
         <TabsContent value="sheet" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('google_sheets_connection')}</CardTitle>
+              <CardTitle>Conexión con Google Sheets</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {!connected ? (
                 <div className="text-center py-8">
                   <Sheet className="h-16 w-16 mx-auto mb-4 text-flowmatic-teal" />
-                  <h3 className="font-medium mb-2">{t('connect_google_sheets')}</h3>
+                  <h3 className="font-medium mb-2">Conectar Google Sheets</h3>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {t('authorize_access_import_data')}
+                    Autoriza el acceso para importar datos de tus hojas de
+                    cálculo
                   </p>
                   <Button
                     variant="flowmatic"
                     onClick={() => setConnected(true)}
                   >
-                    {t('connect_with_google')}
+                    Conectar con Google
                   </Button>
                 </div>
               ) : (
                 <div>
                   <div className="flex items-center gap-2 text-success mb-4">
                     <div className="w-2 h-2 bg-success rounded-full"></div>
-                    <span className="text-sm">{t('successfully_connected')}</span>
+                    <span className="text-sm">Conectado exitosamente</span>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
-                      {t('select_sheet')}
+                      Seleccionar hoja
                     </label>
                     <select className="w-full p-2 border rounded-md">
-                      <option>{t('budgets_2024')}</option>
-                      <option>{t('main_clients')}</option>
-                      <option>{t('popular_destinations')}</option>
+                      <option>Presupuestos 2024</option>
+                      <option>Clientes Principales</option>
+                      <option>Destinos Populares</option>
                     </select>
                   </div>
                 </div>
@@ -693,37 +728,41 @@ const AIInteraction = () => {
         <TabsContent value="text" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t('natural_text_description')}</CardTitle>
+              <CardTitle>Descripción en Texto Natural</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-sm font-medium">
-                    {t('n8n_information')}
+                    Información de n8n
                   </label>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={forceReloadData}
                     className="text-xs"
                   >
-                    🔄 {t('debug_reload_data')}
+                    🔄 Debug: Recargar datos
                   </Button>
                 </div>
                 <div className="border rounded-md p-3 bg-muted/30 min-h-[200px]">
-                  {console.log('Rendering Previa with voyageData:', voyageData)}
+                  {console.log("Rendering Previa with voyageData:", voyageData)}
                   <Previa
                     data={voyageData}
                     loading={!voyageData && !conversacionData.includes("Error")}
-                    error={conversacionData.includes("Error") ? conversacionData : null}
+                    error={
+                      conversacionData.includes("Error")
+                        ? conversacionData
+                        : null
+                    }
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium">{t('describe_trip')}</label>
+                <label className="text-sm font-medium">Describe el viaje</label>
                 <Textarea
-                  placeholder={t('trip_description_example')}
+                  placeholder="Ej: Viaje de luna de miel a París del 15 al 20 de junio, hotel boutique en Montmartre, incluye cena romántica en Torre Eiffel..."
                   value={textDescription}
                   onChange={(e) => setTextDescription(e.target.value)}
                   rows={6}
@@ -736,7 +775,7 @@ const AIInteraction = () => {
                 className="w-full"
               >
                 <Sparkles className="h-4 w-4 mr-2" />
-                {t('optimize_description')}
+                Optimizar descripción
               </Button>
             </CardContent>
           </Card>
@@ -755,12 +794,12 @@ const AIInteraction = () => {
           {processing ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {t('processing')}
+              Procesando...
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              {t('process_with_ai')}
+              Procesar con IA
             </>
           )}
         </Button>
@@ -772,7 +811,7 @@ const AIInteraction = () => {
           <CardContent className="pt-6">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{t('processing_data')}</span>
+                <span className="text-sm font-medium">Procesando datos...</span>
                 <span className="text-sm text-muted-foreground">
                   {progress}%
                 </span>
@@ -787,17 +826,17 @@ const AIInteraction = () => {
       {processedData.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>{t('data_preview')}</CardTitle>
+            <CardTitle>Previsualización de Datos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-2">{t('destination')}</th>
-                    <th className="text-left p-2">{t('dates')}</th>
-                    <th className="text-left p-2">{t('hotel')}</th>
-                    <th className="text-left p-2">{t('cost')}</th>
+                    <th className="text-left p-2">Destino</th>
+                    <th className="text-left p-2">Fechas</th>
+                    <th className="text-left p-2">Hotel</th>
+                    <th className="text-left p-2">Coste</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -816,11 +855,11 @@ const AIInteraction = () => {
             <div className="flex gap-4 mt-6">
               <Button variant="outline" className="flex-1">
                 <Edit3 className="h-4 w-4 mr-2" />
-                {t('edit_manually')}
+                Editar manualmente
               </Button>
               <Button variant="flowmatic" className="flex-1">
                 <Send className="h-4 w-4 mr-2" />
-                {t('send_to_client')}
+                Enviar al cliente
               </Button>
             </div>
           </CardContent>

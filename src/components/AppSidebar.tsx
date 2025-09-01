@@ -1,18 +1,18 @@
 import { useState } from "react";
 import { useLocation, NavLink } from "react-router-dom";
 import { signOut } from "firebase/auth";
-import { 
-  Home, 
-  Bot, 
-  BarChart3, 
-  TrendingUp, 
-  Plane, 
-  History, 
-  User, 
-  Eye, 
+import {
+  Home,
+  Bot,
+  BarChart3,
+  TrendingUp,
+  Plane,
+  History,
+  User,
+  Eye,
   LogOut,
   ChevronLeft,
-  ChevronRight 
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -29,7 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 
 // Navigation items ahora usan claves de traducción en lugar de texto fijo
 const navigationItems = [
@@ -53,22 +53,22 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive 
-      ? "bg-sidebar-accent text-sidebar-primary font-medium shadow-sm" 
+    isActive
+      ? "bg-sidebar-accent text-sidebar-primary font-medium shadow-sm"
       : "hover:bg-sidebar-accent/50 text-sidebar-foreground";
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
       toast({
-        title: t('logout_success_title'),
-        description: t('logout_success_message'),
+        title: t("logout_success_title"),
+        description: t("logout_success_message"),
       });
     } catch (error) {
       toast({
-        title: t('error_title'),
-        description: t('logout_error_message'),
-        variant: "destructive"
+        title: t("error_title"),
+        description: t("logout_error_message"),
+        variant: "destructive",
       });
     }
   };
@@ -87,8 +87,12 @@ export function AppSidebar() {
                 <span className="text-white font-bold">✈️</span>
               </div>
               <div>
-                <h2 className="font-semibold text-sidebar-foreground">Flowmatic</h2>
-                <p className="text-xs text-sidebar-foreground/70">{t('travel_manager')}</p>
+                <h2 className="font-semibold text-sidebar-foreground">
+                  Flowmatic
+                </h2>
+                <p className="text-xs text-sidebar-foreground/70">
+                  {t("travel_manager")}
+                </p>
               </div>
             </div>
           )}
@@ -98,7 +102,11 @@ export function AppSidebar() {
             onClick={toggleSidebar}
             className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
           >
-            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -107,20 +115,22 @@ export function AppSidebar() {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="px-2 text-sidebar-foreground/70 font-medium">
-              {t('main_menu')}
+              {t("main_menu")}
             </SidebarGroupLabel>
           )}
-          
+
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.titleKey}>
                   <SidebarMenuButton asChild className="h-10">
-                    <NavLink 
-                      to={item.url} 
-                      end 
-                      className={({ isActive }) => 
-                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${getNavCls({ isActive })}`
+                    <NavLink
+                      to={item.url}
+                      end
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${getNavCls(
+                          { isActive }
+                        )}`
                       }
                     >
                       <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -137,14 +147,14 @@ export function AppSidebar() {
 
         {/* Logout section */}
         <div className="mt-auto pt-4 border-t border-sidebar-border">
-          <SidebarMenuButton 
+          <SidebarMenuButton
             onClick={handleLogout}
             className={`h-10 w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground text-destructive ${
               collapsed ? "justify-center" : ""
             }`}
           >
             <LogOut className="h-5 w-5 flex-shrink-0" />
-            {!collapsed && <span className="font-medium">{t('log_out')}</span>}
+            {!collapsed && <span className="font-medium">{t("log_out")}</span>}
           </SidebarMenuButton>
         </div>
       </SidebarContent>

@@ -52,6 +52,18 @@ export interface VoyageData {
   logoUrl: string;
   imageProgrammeUrl: string;
   bonVoyageText: string;
+  vos_envies: string;
+  note_hebergement: string;
+  note_programme: string;
+  intro_hebergements: string;
+  // Nuevos campos para títulos editables
+  titre_vos_envies: string;
+  titre_itineraire_bref: string;
+  titre_programme_detaille: string;
+  titre_inclus: string;
+  titre_non_inclus: string;
+  titre_hebergements: string;
+  titre_immersion: string;
 }
 
 interface PreviaProps {
@@ -69,15 +81,33 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [activeHotelIndex, setActiveHotelIndex] = useState<number | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [hotelImages, setHotelImages] = useState<{ [key: string]: string }>({});
 
   // Inicializar datos editados cuando los datos llegan
   React.useEffect(() => {
     if (data && !editedData) {
       setEditedData({
         titreVoyage: "Votre voyage avec Néogusto",
-        logoUrl: "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
-        imageProgrammeUrl: "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
+        logoUrl:
+          "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
+        imageProgrammeUrl:
+          "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
         bonVoyageText: "BON VOYAGE !",
+        vos_envies: "",
+        note_hebergement:
+          "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
+        note_programme:
+          "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
+        intro_hebergements:
+          "Hébergements sélectionnés pour leur confort, charme et localisation.",
+        // Valores por defecto para los títulos
+        titre_vos_envies: "VOS ENVIES",
+        titre_itineraire_bref: "VOTRE ITINÉRAIRE EN BREF",
+        titre_programme_detaille: "PROGRAMME DÉTAILLÉ",
+        titre_inclus: "INCLUS",
+        titre_non_inclus: "NON INCLUS",
+        titre_hebergements: "VOS HÉBERGEMENTS",
+        titre_immersion: "Immersion au",
         ...data,
         themeColor: data.themeColor || "#3b82f6",
       });
@@ -291,37 +321,42 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
 
   const generarPDF = async () => {
     if (!editedData) return;
-    
+
     setGeneratingPdf(true);
     try {
-      const response = await fetch('http://38.242.224.81:3000/generar-pdf', {
-        method: 'POST',
+      const response = await fetch("http://38.242.224.81:3000/generar-pdf", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(editedData),
       });
-  
+
       if (!response.ok) {
-        throw new Error(`Error del servidor: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Error del servidor: ${response.status} ${response.statusText}`
+        );
       }
-  
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = 'voyage-plan.pdf';
+      a.download = "voyage-plan.pdf";
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error generando PDF:', error);
-      setSaveError(`Error de conexión: No se pudo conectar al servidor. Verifica que el servidor esté ejecutándose en http://38.242.224.81:3000`);
+      console.error("Error generando PDF:", error);
+      setSaveError(
+        `Error de conexión: No se pudo conectar al servidor. Verifica que el servidor esté ejecutándose en http://38.242.224.81:3000`
+      );
     } finally {
       setGeneratingPdf(false);
     }
   };
+
   if (loading)
     return (
       <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded">
@@ -395,8 +430,8 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
               </Button>
             </>
           )}
-          <Button 
-            variant="secondary" 
+          <Button
+            variant="secondary"
             onClick={generarPDF}
             disabled={generatingPdf}
           >
@@ -490,7 +525,17 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
           className="text-xl font-semibold mt-2"
           style={{ color: editedData.themeColor }}
         >
-          Immersion au{" "}
+          {editing ? (
+            <Input
+              type="text"
+              value={editedData.titre_immersion}
+              onChange={(e) => handleChange("titre_immersion", e.target.value)}
+              className="inline-block w-48 mx-2 text-center"
+              style={{ color: editedData.themeColor }}
+            />
+          ) : (
+            editedData.titre_immersion || "Immersion au"
+          )}{" "}
           {editing ? (
             <Input
               type="text"
@@ -507,15 +552,44 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
 
       <div className="section my-6">
         <h2 className="text-lg font-semibold border-b border-gray-300 pb-2 mb-3">
-          VOS ENVIES
+          {editing ? (
+            <Input
+              value={editedData.titre_vos_envies}
+              onChange={(e) => handleChange("titre_vos_envies", e.target.value)}
+              className="text-lg font-semibold"
+            />
+          ) : (
+            editedData.titre_vos_envies || "VOS ENVIES"
+          )}
         </h2>
-        <div className="border border-gray-400 h-24 my-3"></div>
+        {editing ? (
+          <Textarea
+            value={editedData.vos_envies || ""}
+            onChange={(e) => handleChange("vos_envies", e.target.value)}
+            className="w-full border border-gray-400 h-24 my-3"
+            placeholder="Ajoutez vos envies ici..."
+          />
+        ) : (
+          <div className="border border-gray-400 h-24 my-3 p-2">
+            {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+          </div>
+        )}
       </div>
 
       <div className="section my-6">
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-lg font-semibold">
-            VOTRE ITINÉRAIRE EN BREF
+            {editing ? (
+              <Input
+                value={editedData.titre_itineraire_bref}
+                onChange={(e) =>
+                  handleChange("titre_itineraire_bref", e.target.value)
+                }
+                className="text-lg font-semibold"
+              />
+            ) : (
+              editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE EN BREF"
+            )}
           </h2>
           {editing && (
             <Button onClick={addNewItineraryEntry} size="sm">
@@ -672,27 +746,53 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         </DragDropContext>
 
         <div
-          className="bg-orange-100 border-l-4 border-orange-500 p-3 my-4 rounded"
-          style={{ borderLeftColor: editedData.themeColor }}
+          className="p-3 my-4 rounded"
+          style={{
+            backgroundColor: editedData.themeColor + "20",
+            borderLeft: `4px solid ${editedData.themeColor}`,
+          }}
         >
-          <p>
-            Le programme a été établi sur la base de nos derniers échanges et{" "}
-            <strong>peut être adapté selon vos souhaits</strong>.
-          </p>
+          {editing ? (
+            <Textarea
+              value={editedData.note_programme || ""}
+              onChange={(e) => handleChange("note_programme", e.target.value)}
+              className="w-full"
+              rows={3}
+            />
+          ) : (
+            <p>
+              {editedData.note_programme ||
+                "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits."}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="section programme-detaille my-6">
         <h2 className="text-lg font-semibold border-b border-gray-300 pb-2 mb-3">
-          PROGRAMME DÉTAILLÉ
+          {editing ? (
+            <Input
+              value={editedData.titre_programme_detaille}
+              onChange={(e) =>
+                handleChange("titre_programme_detaille", e.target.value)
+              }
+              className="text-lg font-semibold"
+            />
+          ) : (
+            editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"
+          )}
         </h2>
         <div className="mb-4">
           {editing ? (
             <>
-              <Label className="block mb-2">URL de la imagen del programa:</Label>
+              <Label className="block mb-2">
+                URL de la imagen del programa:
+              </Label>
               <Input
                 value={editedData.imageProgrammeUrl}
-                onChange={(e) => handleChange("imageProgrammeUrl", e.target.value)}
+                onChange={(e) =>
+                  handleChange("imageProgrammeUrl", e.target.value)
+                }
                 className="mb-2"
               />
             </>
@@ -731,7 +831,19 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-semibold bg-gray-800 text-white p-2">INCLUS</h3>
+              <h3 className="font-semibold bg-gray-800 text-white p-2">
+                {editing ? (
+                  <Input
+                    value={editedData.titre_inclus}
+                    onChange={(e) =>
+                      handleChange("titre_inclus", e.target.value)
+                    }
+                    className="font-semibold text-white bg-transparent border-none"
+                  />
+                ) : (
+                  editedData.titre_inclus || "INCLUS"
+                )}
+              </h3>
               {editing && (
                 <Button
                   onClick={() => addNewListItem("inclus")}
@@ -780,7 +892,9 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => removeListItem("inclus", index)}
+                                  onClick={() =>
+                                    removeListItem("inclus", index)
+                                  }
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
@@ -801,7 +915,19 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
 
           <div>
             <div className="flex justify-between items-center mb-2">
-              <h3 className="font-semibold bg-gray-800 text-white p-2">NON INCLUS</h3>
+              <h3 className="font-semibold bg-gray-800 text-white p-2">
+                {editing ? (
+                  <Input
+                    value={editedData.titre_non_inclus}
+                    onChange={(e) =>
+                      handleChange("titre_non_inclus", e.target.value)
+                    }
+                    className="font-semibold text-white bg-transparent border-none"
+                  />
+                ) : (
+                  editedData.titre_non_inclus || "NON INCLUS"
+                )}
+              </h3>
               {editing && (
                 <Button
                   onClick={() => addNewListItem("non_inclus")}
@@ -850,7 +976,9 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => removeListItem("non_inclus", index)}
+                                  onClick={() =>
+                                    removeListItem("non_inclus", index)
+                                  }
                                 >
                                   <Trash2 className="h-4 w-4 text-red-500" />
                                 </Button>
@@ -871,8 +999,11 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         </div>
 
         <div
-          className="bg-orange-100 border-l-4 p-4 my-4 rounded"
-          style={{ borderLeftColor: editedData.themeColor }}
+          className="p-4 my-4 rounded"
+          style={{
+            backgroundColor: editedData.themeColor + "20",
+            borderLeft: `4px solid ${editedData.themeColor}`,
+          }}
         >
           <p>
             <strong>
@@ -921,17 +1052,35 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
 
       <div className="section my-6">
         <h2 className="text-lg font-semibold border-b border-gray-300 pb-2 mb-3">
-          VOS HÉBERGEMENTS
+          {editing ? (
+            <Input
+              value={editedData.titre_hebergements}
+              onChange={(e) =>
+                handleChange("titre_hebergements", e.target.value)
+              }
+              className="text-lg font-semibold"
+            />
+          ) : (
+            editedData.titre_hebergements || "VOS HÉBERGEMENTS"
+          )}
         </h2>
         <img
-          src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png"
+          src={editedData.logoUrl}
           alt="Hébergements"
           className="mx-auto h-12 mb-4"
         />
-        <p className="mb-4">
-          Hébergements sélectionnés pour leur <strong>confort</strong>,{" "}
-          <strong>charme</strong> et <strong>localisation</strong>.
-        </p>
+
+        {/* Texto introductorio editable */}
+        {editing ? (
+          <Textarea
+            value={editedData.intro_hebergements || ""}
+            onChange={(e) => handleChange("intro_hebergements", e.target.value)}
+            className="w-full mb-4"
+            rows={3}
+          />
+        ) : (
+          <p className="mb-4">{editedData.intro_hebergements}</p>
+        )}
 
         <ul className="space-y-4">
           {extractHotels().map((hotel, index) => {
@@ -964,7 +1113,9 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
                 </div>
                 {editing && (
                   <div className="mt-4">
-                    <Label className="block mb-2">Ajouter une image (URL):</Label>
+                    <Label className="block mb-2">
+                      Ajouter une image (URL):
+                    </Label>
                     <div className="flex gap-2">
                       <Input
                         type="text"
@@ -986,13 +1137,26 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         </ul>
 
         <div
-          className="bg-orange-100 border-l-4 p-3 my-4 rounded"
-          style={{ borderLeftColor: editedData.themeColor }}
+          className="p-3 my-4 rounded"
+          style={{
+            backgroundColor: editedData.themeColor + "20",
+            borderLeft: `4px solid ${editedData.themeColor}`,
+          }}
         >
-          <p>
-            <strong>NOTE :</strong> Les hébergements proposés sont sujets à
-            disponibilité au moment de la réservation.
-          </p>
+          {editing ? (
+            <Textarea
+              value={editedData.note_hebergement || ""}
+              onChange={(e) => handleChange("note_hebergement", e.target.value)}
+              className="w-full"
+              rows={2}
+            />
+          ) : (
+            <p>
+              <strong>NOTE :</strong>{" "}
+              {editedData.note_hebergement ||
+                "Les hébergements proposés sont sujets à disponibilité au moment de la réservation."}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1005,7 +1169,10 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
             style={{ color: editedData.themeColor }}
           />
         ) : (
-          <h2 className="text-xl font-bold" style={{ color: editedData.themeColor }}>
+          <h2
+            className="text-xl font-bold"
+            style={{ color: editedData.themeColor }}
+          >
             {editedData.bonVoyageText}
           </h2>
         )}

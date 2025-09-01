@@ -4,42 +4,68 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  TrendingUp, 
-  Calendar, 
-  MapPin, 
+import {
+  TrendingUp,
+  Calendar,
+  MapPin,
   BarChart3,
   Sparkles,
   Save,
   Mail,
   FileText,
   ArrowRight,
-  Target
+  Target,
 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const Comparisons = () => {
   const [tipoComparacion, setTipoComparacion] = useState("periodos");
   const [metricas, setMetricas] = useState({
     viajes: true,
     valorPromedio: true,
-    satisfaccion: false
+    satisfaccion: false,
   });
   const [analisisGenerado, setAnalisisGenerado] = useState(false);
 
   const comparacionData = {
     periodos: {
-      actual: { periodo: "Junio 2024", viajes: 73, valor: 205000, satisfaccion: 4.6 },
-      anterior: { periodo: "Mayo 2024", viajes: 67, valor: 189000, satisfaccion: 4.5 }
+      actual: {
+        periodo: "Junio 2024",
+        viajes: 73,
+        valor: 205000,
+        satisfaccion: 4.6,
+      },
+      anterior: {
+        periodo: "Mayo 2024",
+        viajes: 67,
+        valor: 189000,
+        satisfaccion: 4.5,
+      },
     },
     destinos: {
       paris: { viajes: 45, valor: 142000, satisfaccion: 4.8 },
-      barcelona: { viajes: 38, valor: 118000, satisfaccion: 4.7 }
+      barcelona: { viajes: 38, valor: 118000, satisfaccion: 4.7 },
     },
     datasets: {
-      dataset1: { nombre: "Clientes Premium", viajes: 234, valor: 580000, satisfaccion: 4.8 },
-      dataset2: { nombre: "Clientes Estándar", viajes: 456, valor: 320000, satisfaccion: 4.4 }
-    }
+      dataset1: {
+        nombre: "Clientes Premium",
+        viajes: 234,
+        valor: 580000,
+        satisfaccion: 4.8,
+      },
+      dataset2: {
+        nombre: "Clientes Estándar",
+        viajes: 456,
+        valor: 320000,
+        satisfaccion: 4.4,
+      },
+    },
   };
 
   const analisisIA = {
@@ -47,13 +73,13 @@ const Comparisons = () => {
       "📈 Crecimiento del 9% en número de viajes mes a mes",
       "💰 Incremento del 8.5% en valor promedio por viaje",
       "⭐ Mejora en satisfacción del cliente (+0.1 puntos)",
-      "🎯 París mantiene el liderazgo con mejor ratio valor/satisfacción"
+      "🎯 París mantiene el liderazgo con mejor ratio valor/satisfacción",
     ],
     recomendaciones: [
       "Potenciar marketing en destinos con alta satisfacción pero bajo volumen",
       "Implementar programa de fidelización para clientes recurrentes",
-      "Optimizar precios en temporada alta basado en demanda histórica"
-    ]
+      "Optimizar precios en temporada alta basado en demanda histórica",
+    ],
   };
 
   const generarAnalisis = () => {
@@ -64,7 +90,7 @@ const Comparisons = () => {
     const variacion = ((actual - anterior) / anterior) * 100;
     return {
       valor: Math.abs(variacion).toFixed(1),
-      positivo: variacion > 0
+      positivo: variacion > 0,
     };
   };
 
@@ -72,8 +98,12 @@ const Comparisons = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Comparaciones Avanzadas</h1>
-        <p className="text-muted-foreground">Análisis comparativo inteligente con insights de IA</p>
+        <h1 className="text-3xl font-bold text-foreground">
+          Comparaciones Avanzadas
+        </h1>
+        <p className="text-muted-foreground">
+          Análisis comparativo inteligente con insights de IA
+        </p>
       </div>
 
       {/* Configuración de Comparación */}
@@ -104,7 +134,9 @@ const Comparisons = () => {
             <TabsContent value="periodos" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium block mb-2">Período Base</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Período Base
+                  </label>
                   <Select defaultValue="junio2024">
                     <SelectTrigger>
                       <SelectValue />
@@ -117,7 +149,9 @@ const Comparisons = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium block mb-2">Período Comparación</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Período Comparación
+                  </label>
                   <Select defaultValue="mayo2024">
                     <SelectTrigger>
                       <SelectValue />
@@ -135,7 +169,9 @@ const Comparisons = () => {
             <TabsContent value="destinos" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium block mb-2">Destino Principal</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Destino Principal
+                  </label>
                   <Select defaultValue="paris">
                     <SelectTrigger>
                       <SelectValue />
@@ -148,7 +184,9 @@ const Comparisons = () => {
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium block mb-2">Destino Comparación</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Destino Comparación
+                  </label>
                   <Select defaultValue="barcelona">
                     <SelectTrigger>
                       <SelectValue />
@@ -166,28 +204,38 @@ const Comparisons = () => {
             <TabsContent value="datasets" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium block mb-2">Dataset A</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Dataset A
+                  </label>
                   <Select defaultValue="premium">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="premium">Clientes Premium</SelectItem>
-                      <SelectItem value="estandar">Clientes Estándar</SelectItem>
+                      <SelectItem value="estandar">
+                        Clientes Estándar
+                      </SelectItem>
                       <SelectItem value="nuevos">Clientes Nuevos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <label className="text-sm font-medium block mb-2">Dataset B</label>
+                  <label className="text-sm font-medium block mb-2">
+                    Dataset B
+                  </label>
                   <Select defaultValue="estandar">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="estandar">Clientes Estándar</SelectItem>
+                      <SelectItem value="estandar">
+                        Clientes Estándar
+                      </SelectItem>
                       <SelectItem value="premium">Clientes Premium</SelectItem>
-                      <SelectItem value="recurrentes">Clientes Recurrentes</SelectItem>
+                      <SelectItem value="recurrentes">
+                        Clientes Recurrentes
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -200,34 +248,52 @@ const Comparisons = () => {
             <h3 className="text-sm font-medium mb-3">Métricas a Comparar</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="viajes" 
+                <Checkbox
+                  id="viajes"
                   checked={metricas.viajes}
-                  onCheckedChange={(checked) => setMetricas(prev => ({ ...prev, viajes: !!checked }))}
+                  onCheckedChange={(checked) =>
+                    setMetricas((prev) => ({ ...prev, viajes: !!checked }))
+                  }
                 />
-                <label htmlFor="viajes" className="text-sm">Número de viajes</label>
+                <label htmlFor="viajes" className="text-sm">
+                  Número de viajes
+                </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="valor" 
+                <Checkbox
+                  id="valor"
                   checked={metricas.valorPromedio}
-                  onCheckedChange={(checked) => setMetricas(prev => ({ ...prev, valorPromedio: !!checked }))}
+                  onCheckedChange={(checked) =>
+                    setMetricas((prev) => ({
+                      ...prev,
+                      valorPromedio: !!checked,
+                    }))
+                  }
                 />
-                <label htmlFor="valor" className="text-sm">Valor promedio</label>
+                <label htmlFor="valor" className="text-sm">
+                  Valor promedio
+                </label>
               </div>
               <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="satisfaccion" 
+                <Checkbox
+                  id="satisfaccion"
                   checked={metricas.satisfaccion}
-                  onCheckedChange={(checked) => setMetricas(prev => ({ ...prev, satisfaccion: !!checked }))}
+                  onCheckedChange={(checked) =>
+                    setMetricas((prev) => ({
+                      ...prev,
+                      satisfaccion: !!checked,
+                    }))
+                  }
                 />
-                <label htmlFor="satisfaccion" className="text-sm">Satisfacción</label>
+                <label htmlFor="satisfaccion" className="text-sm">
+                  Satisfacción
+                </label>
               </div>
             </div>
           </div>
 
-          <Button 
-            variant="flowmatic" 
+          <Button
+            variant="flowmatic"
             onClick={generarAnalisis}
             className="w-full"
           >
@@ -249,7 +315,9 @@ const Comparisons = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Comparación de Períodos */}
                 <div className="space-y-4">
-                  <h4 className="font-medium text-center">Junio 2024 vs Mayo 2024</h4>
+                  <h4 className="font-medium text-center">
+                    Junio 2024 vs Mayo 2024
+                  </h4>
                   <div className="space-y-3">
                     {metricas.viajes && (
                       <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
@@ -258,16 +326,21 @@ const Comparisons = () => {
                           <Badge variant="outline">73</Badge>
                           <ArrowRight className="h-3 w-3" />
                           <Badge variant="secondary">67</Badge>
-                          <Badge 
-                            variant={calcularVariacion(73, 67).positivo ? "default" : "destructive"}
+                          <Badge
+                            variant={
+                              calcularVariacion(73, 67).positivo
+                                ? "default"
+                                : "destructive"
+                            }
                             className="text-xs"
                           >
-                            {calcularVariacion(73, 67).positivo ? '+' : '-'}{calcularVariacion(73, 67).valor}%
+                            {calcularVariacion(73, 67).positivo ? "+" : "-"}
+                            {calcularVariacion(73, 67).valor}%
                           </Badge>
                         </div>
                       </div>
                     )}
-                    
+
                     {metricas.valorPromedio && (
                       <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                         <span className="text-sm">Valor Total</span>
@@ -275,11 +348,18 @@ const Comparisons = () => {
                           <Badge variant="outline">€205k</Badge>
                           <ArrowRight className="h-3 w-3" />
                           <Badge variant="secondary">€189k</Badge>
-                          <Badge 
-                            variant={calcularVariacion(205000, 189000).positivo ? "default" : "destructive"}
+                          <Badge
+                            variant={
+                              calcularVariacion(205000, 189000).positivo
+                                ? "default"
+                                : "destructive"
+                            }
                             className="text-xs"
                           >
-                            {calcularVariacion(205000, 189000).positivo ? '+' : '-'}{calcularVariacion(205000, 189000).valor}%
+                            {calcularVariacion(205000, 189000).positivo
+                              ? "+"
+                              : "-"}
+                            {calcularVariacion(205000, 189000).valor}%
                           </Badge>
                         </div>
                       </div>
@@ -293,7 +373,9 @@ const Comparisons = () => {
                     <div className="text-center">
                       <TrendingUp className="h-12 w-12 mx-auto mb-2 text-flowmatic-teal" />
                       <p className="text-sm font-medium">Gráfico Radar</p>
-                      <p className="text-xs text-muted-foreground">Comparación multidimensional</p>
+                      <p className="text-xs text-muted-foreground">
+                        Comparación multidimensional
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -315,7 +397,10 @@ const Comparisons = () => {
                 <h4 className="font-medium mb-3">Hallazgos Clave</h4>
                 <div className="space-y-2">
                   {analisisIA.hallazgos.map((hallazgo, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg"
+                    >
                       <div className="w-2 h-2 bg-flowmatic-teal rounded-full mt-2 flex-shrink-0" />
                       <p className="text-sm">{hallazgo}</p>
                     </div>
@@ -325,10 +410,15 @@ const Comparisons = () => {
 
               {/* Recomendaciones */}
               <div>
-                <h4 className="font-medium mb-3">Recomendaciones Estratégicas</h4>
+                <h4 className="font-medium mb-3">
+                  Recomendaciones Estratégicas
+                </h4>
                 <div className="space-y-2">
                   {analisisIA.recomendaciones.map((recomendacion, index) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-flowmatic-teal/5 rounded-lg border border-flowmatic-teal/20">
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 p-3 bg-flowmatic-teal/5 rounded-lg border border-flowmatic-teal/20"
+                    >
                       <Target className="h-4 w-4 text-flowmatic-teal mt-0.5 flex-shrink-0" />
                       <p className="text-sm">{recomendacion}</p>
                     </div>
@@ -360,7 +450,9 @@ const Comparisons = () => {
                       <td className="p-3">73</td>
                       <td className="p-3">67</td>
                       <td className="p-3">
-                        <Badge variant="default" className="text-xs">+9.0%</Badge>
+                        <Badge variant="default" className="text-xs">
+                          +9.0%
+                        </Badge>
                       </td>
                     </tr>
                     <tr className="border-b">
@@ -368,7 +460,9 @@ const Comparisons = () => {
                       <td className="p-3">€205,000</td>
                       <td className="p-3">€189,000</td>
                       <td className="p-3">
-                        <Badge variant="default" className="text-xs">+8.5%</Badge>
+                        <Badge variant="default" className="text-xs">
+                          +8.5%
+                        </Badge>
                       </td>
                     </tr>
                     <tr className="border-b">
@@ -376,7 +470,9 @@ const Comparisons = () => {
                       <td className="p-3">€2,808</td>
                       <td className="p-3">€2,821</td>
                       <td className="p-3">
-                        <Badge variant="destructive" className="text-xs">-0.5%</Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          -0.5%
+                        </Badge>
                       </td>
                     </tr>
                   </tbody>

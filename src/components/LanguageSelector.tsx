@@ -1,4 +1,4 @@
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 
 const LanguageSelector = () => {
   const { i18n } = useTranslation();
@@ -13,9 +13,9 @@ const LanguageSelector = () => {
       onChange={(e) => changeLanguage(e.target.value)}
       className="px-2 py-1 border rounded"
     >
-      <option value="es">Español</option>
-      <option value="en">English</option>
-      <option value="fr">Français</option>
+      <option value="es">🇪🇦</option>
+      <option value="en">🇺🇸</option>
+      <option value="fr">🇫🇷</option>
     </select>
   );
 };

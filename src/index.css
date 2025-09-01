@@ -9,11 +9,11 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Flowmatic Color System */
-    --flowmatic-dark-blue: 208 59% 25%;      /* #173F70 */
-    --flowmatic-medium-blue: 207 53% 38%;    /* #3173A0 */
-    --flowmatic-teal: 173 57% 38%;           /* #2C9283 */
-    --flowmatic-green: 145 43% 60%;          /* #4BB385 */
-    
+    --flowmatic-dark-blue: 208 59% 25%; /* #173F70 */
+    --flowmatic-medium-blue: 207 53% 38%; /* #3173A0 */
+    --flowmatic-teal: 173 57% 38%; /* #2C9283 */
+    --flowmatic-green: 145 43% 60%; /* #4BB385 */
+
     /* Background and Text */
     --background: 0 0% 100%;
     --foreground: 208 59% 25%;
@@ -69,13 +69,23 @@ All colors MUST be HSL.
     --sidebar-ring: 145 43% 60%;
 
     /* Gradients */
-    --gradient-flowmatic: linear-gradient(90deg, hsl(208 59% 25%), hsl(207 53% 38%), hsl(173 57% 38%), hsl(145 43% 60%));
-    --gradient-subtle: linear-gradient(135deg, hsl(208 59% 97%), hsl(173 57% 95%));
-    
+    --gradient-flowmatic: linear-gradient(
+      90deg,
+      hsl(208 59% 25%),
+      hsl(207 53% 38%),
+      hsl(173 57% 38%),
+      hsl(145 43% 60%)
+    );
+    --gradient-subtle: linear-gradient(
+      135deg,
+      hsl(208 59% 97%),
+      hsl(173 57% 95%)
+    );
+
     /* Shadows */
     --shadow-flowmatic: 0 10px 30px -10px hsl(208 59% 25% / 0.15);
     --shadow-glow: 0 0 40px hsl(173 57% 38% / 0.2);
-    
+
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
