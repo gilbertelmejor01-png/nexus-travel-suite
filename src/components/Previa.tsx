@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
 import {
   DragDropContext,
   Droppable,
@@ -64,6 +65,19 @@ export interface VoyageData {
   titre_non_inclus: string;
   titre_hebergements: string;
   titre_immersion: string;
+  // Nuevos campos para textos editables de tarifas
+  titre_tarif: string;
+  titre_chambre_simple: string;
+  titre_remarques: string;
+  // Nuevos campos para encabezados de tabla editables
+  titre_jour: string;
+  titre_date: string;
+  titre_programme_table: string;
+  titre_nuit: string;
+  titre_hotel: string;
+  // Hoteles personalizados
+  hebergements_personnalises: HotelInfo[];
+  
 }
 
 interface PreviaProps {
@@ -73,6 +87,7 @@ interface PreviaProps {
 }
 
 const Previa = ({ data, loading, error }: PreviaProps) => {
+  const { currentUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [editedData, setEditedData] = useState<VoyageData | null>(null);
   const [saving, setSaving] = useState(false);
@@ -82,6 +97,24 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
   const [activeHotelIndex, setActiveHotelIndex] = useState<number | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [hotelImages, setHotelImages] = useState<{ [key: string]: string }>({});
+  const [conversacionId, setConversacionId] = useState<string | null>(null);
+
+  // Función para obtener el ID de conversación desde el perfil del usuario
+  const obtenerConversacionId = async (uid: string): Promise<string | null> => {
+    try {
+      const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
+      const perfilSnap = await getDoc(perfilDocRef);
+      
+      if (perfilSnap.exists()) {
+        const data = perfilSnap.data();
+        return data?.conexionesIA?.conversacion || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error obteniendo ID de conversación:", error);
+      return null;
+    }
+  };
 
   // Inicializar datos editados cuando los datos llegan
   React.useEffect(() => {
@@ -108,11 +141,36 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         titre_non_inclus: "NON INCLUS",
         titre_hebergements: "VOS HÉBERGEMENTS",
         titre_immersion: "Immersion au",
+        // Valores por defecto para textos de tarifas
+        titre_tarif: "TARIF par personne",
+        titre_chambre_simple: "Chambre simple",
+        titre_remarques: "Remarques",
+        // Valores por defecto para encabezados de tabla
+        titre_jour: "JOUR",
+        titre_date: "DATE",
+        titre_programme_table: "PROGRAMME",
+        titre_nuit: "NUIT",
+        titre_hotel: "HÔTEL",
+        // Hoteles personalizados
+        hebergements_personnalises: [],
+
         ...data,
         themeColor: data.themeColor || "#3b82f6",
       });
     }
   }, [data]);
+
+  // Obtener el ID de conversación cuando el usuario esté autenticado
+  React.useEffect(() => {
+    const cargarConversacionId = async () => {
+      if (currentUser?.uid) {
+        const id = await obtenerConversacionId(currentUser.uid);
+        setConversacionId(id);
+      }
+    };
+
+    cargarConversacionId();
+  }, [currentUser]);
 
   const extractHotels = (): HotelInfo[] => {
     if (!editedData?.table_itineraire_bref) return [];
@@ -152,6 +210,16 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
       setEditedData({
         ...editedData,
         [field]: items,
+      });
+    }
+    // Reordenar hoteles personalizados
+    else if (result.type === "hebergements_personnalises") {
+      const items = Array.from(editedData.hebergements_personnalises || []);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: items,
       });
     }
   };
@@ -295,6 +363,96 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
     setNewImageUrl("");
   };
 
+  const addNewHotelPersonnalise = () => {
+    if (!editedData) return;
+
+    const newHotel: HotelInfo = {
+      nom: "Nouvel hôtel",
+      description: "Description de l'hôtel",
+      images: [],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: [
+        ...(editedData.hebergements_personnalises || []),
+        newHotel,
+      ],
+    });
+  };
+
+  const removeHotelPersonnalise = (index: number) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const handleHotelPersonnaliseChange = (
+    index: number,
+    field: keyof HotelInfo,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels[index] = {
+      ...updatedHotels[index],
+      [field]: value,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const addImageToHotelPersonnalise = (
+    hotelIndex: number,
+    imageUrl: string
+  ) => {
+    if (!editedData || !imageUrl.trim()) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const currentImages = updatedHotels[hotelIndex].images || [];
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: [...currentImages, imageUrl.trim()],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const removeImageFromHotelPersonnalise = (
+    hotelIndex: number,
+    imageIndex: number
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const updatedImages = [...updatedHotels[hotelIndex].images];
+    updatedImages.splice(imageIndex, 1);
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: updatedImages,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
   const handleSave = async () => {
     if (!editedData) return;
 
@@ -303,7 +461,12 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
     setSaveSuccess(false);
 
     try {
-      const docRef = doc(db, "conversacion", "xvbV2piJNxukwOUWODPk");
+      // Verificar que tenemos el ID de conversación
+      if (!conversacionId) {
+        throw new Error("No se pudo obtener el ID de conversación del usuario");
+      }
+
+      const docRef = doc(db, "conversacion", conversacionId);
       await updateDoc(docRef, {
         output: editedData,
       });
@@ -384,6 +547,20 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         </div>
       </div>
     );
+
+  // Validar que tenemos el ID de conversación
+  if (!conversacionId && currentUser) {
+    return (
+      <div className="text-center py-8 bg-orange-50 border border-orange-200 rounded">
+        <div className="text-orange-600 font-semibold">
+          ⚠️ Configuración incompleta
+        </div>
+        <div className="text-sm text-gray-500 mt-2">
+          No se pudo obtener la configuración de conversación del usuario.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 bg-white shadow-md rounded-lg">
@@ -610,11 +787,74 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
                 <thead>
                   <tr className="bg-gray-100">
                     <th className="p-2 text-left"></th>
-                    <th className="p-2 text-left">JOUR</th>
-                    <th className="p-2 text-left">DATE</th>
-                    <th className="p-2 text-left">PROGRAMME</th>
-                    <th className="p-2 text-left">NUIT</th>
-                    <th className="p-2 text-left">HÔTEL</th>
+                    <th className="p-2 text-left">
+                      {editing ? (
+                        <Input
+                          value={editedData.titre_jour}
+                          onChange={(e) =>
+                            handleChange("titre_jour", e.target.value)
+                          }
+                          className="font-semibold"
+                        />
+                      ) : (
+                        editedData.titre_jour || "JOUR"
+                      )}
+                    </th>
+                    <th className="p-2 text-left">
+                      {editing ? (
+                        <Input
+                          value={editedData.titre_date}
+                          onChange={(e) =>
+                            handleChange("titre_date", e.target.value)
+                          }
+                          className="font-semibold"
+                        />
+                      ) : (
+                        editedData.titre_date || "DATE"
+                      )}
+                    </th>
+                    <th className="p-2 text-left">
+                      {editing ? (
+                        <Input
+                          value={editedData.titre_programme_table}
+                          onChange={(e) =>
+                            handleChange(
+                              "titre_programme_table",
+                              e.target.value
+                            )
+                          }
+                          className="font-semibold"
+                        />
+                      ) : (
+                        editedData.titre_programme_table || "PROGRAMME"
+                      )}
+                    </th>
+                    <th className="p-2 text-left">
+                      {editing ? (
+                        <Input
+                          value={editedData.titre_nuit}
+                          onChange={(e) =>
+                            handleChange("titre_nuit", e.target.value)
+                          }
+                          className="font-semibold"
+                        />
+                      ) : (
+                        editedData.titre_nuit || "NUIT"
+                      )}
+                    </th>
+                    <th className="p-2 text-left">
+                      {editing ? (
+                        <Input
+                          value={editedData.titre_hotel}
+                          onChange={(e) =>
+                            handleChange("titre_hotel", e.target.value)
+                          }
+                          className="font-semibold"
+                        />
+                      ) : (
+                        editedData.titre_hotel || "HÔTEL"
+                      )}
+                    </th>
                     {editing && <th className="p-2 text-left">Actions</th>}
                   </tr>
                 </thead>
@@ -1007,7 +1247,16 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
         >
           <p>
             <strong>
-              TARIF par personne :{" "}
+              {editing ? (
+                <Input
+                  value={editedData.titre_tarif}
+                  onChange={(e) => handleChange("titre_tarif", e.target.value)}
+                  className="inline-block w-48 mx-2 font-bold"
+                />
+              ) : (
+                editedData.titre_tarif || "TARIF par personne"
+              )}
+              :{" "}
               {editing ? (
                 <Input
                   value={editedData.prix_par_personne}
@@ -1022,7 +1271,18 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
             </strong>
           </p>
           <p className="mt-2">
-            Chambre simple :{" "}
+            {editing ? (
+              <Input
+                value={editedData.titre_chambre_simple}
+                onChange={(e) =>
+                  handleChange("titre_chambre_simple", e.target.value)
+                }
+                className="inline-block w-48 mx-2"
+              />
+            ) : (
+              editedData.titre_chambre_simple || "Chambre simple"
+            )}
+            :{" "}
             {editing ? (
               <Input
                 value={editedData.chambre_simple}
@@ -1034,7 +1294,18 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
             )}
           </p>
           <p className="mt-2">
-            Remarques :{" "}
+            {editing ? (
+              <Input
+                value={editedData.titre_remarques}
+                onChange={(e) =>
+                  handleChange("titre_remarques", e.target.value)
+                }
+                className="inline-block w-48 mx-2"
+              />
+            ) : (
+              editedData.titre_remarques || "Remarques"
+            )}
+            :{" "}
             {editing ? (
               <Input
                 value={editedData.remarques_tarifs}
@@ -1051,19 +1322,27 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
       </div>
 
       <div className="section my-6">
-        <h2 className="text-lg font-semibold border-b border-gray-300 pb-2 mb-3">
-          {editing ? (
-            <Input
-              value={editedData.titre_hebergements}
-              onChange={(e) =>
-                handleChange("titre_hebergements", e.target.value)
-              }
-              className="text-lg font-semibold"
-            />
-          ) : (
-            editedData.titre_hebergements || "VOS HÉBERGEMENTS"
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold border-b border-gray-300 pb-2 mb-3">
+            {editing ? (
+              <Input
+                value={editedData.titre_hebergements}
+                onChange={(e) =>
+                  handleChange("titre_hebergements", e.target.value)
+                }
+                className="text-lg font-semibold"
+              />
+            ) : (
+              editedData.titre_hebergements || "VOS HÉBERGEMENTS"
+            )}
+          </h2>
+          {editing && (
+            <Button onClick={addNewHotelPersonnalise} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Ajouter un hôtel
+            </Button>
           )}
-        </h2>
+        </div>
         <img
           src={editedData.logoUrl}
           alt="Hébergements"
@@ -1135,6 +1414,159 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
             );
           })}
         </ul>
+
+        {/* Hoteles personalizados (editables) */}
+        <DragDropContext onDragEnd={onDragEnd}>
+          <Droppable
+            droppableId="hebergements_personnalises"
+            type="hebergements_personnalises"
+          >
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="space-y-4 mt-6"
+              >
+                {editedData.hebergements_personnalises?.map((hotel, index) => (
+                  <Draggable
+                    key={`personalized-${index}`}
+                    draggableId={`personalized-${index}`}
+                    index={index}
+                  >
+                    {(provided) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        className="border rounded-lg p-4"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div {...provided.dragHandleProps} className="mb-2">
+                              <GripVertical className="h-4 w-4 text-gray-400" />
+                            </div>
+
+                            {editing ? (
+                              <>
+                                <div className="mb-2">
+                                  <Label>Nom de l'hôtel:</Label>
+                                  <Input
+                                    value={hotel.nom}
+                                    onChange={(e) =>
+                                      handleHotelPersonnaliseChange(
+                                        index,
+                                        "nom",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full"
+                                  />
+                                </div>
+                                <div className="mb-2">
+                                  <Label>Description:</Label>
+                                  <Input
+                                    value={hotel.description}
+                                    onChange={(e) =>
+                                      handleHotelPersonnaliseChange(
+                                        index,
+                                        "description",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full"
+                                  />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="font-semibold text-lg mb-2">
+                                {hotel.nom} - {hotel.description}
+                              </div>
+                            )}
+
+                            <div className="mt-4">
+                              {hotel.images.map((image, imgIndex) => (
+                                <div key={imgIndex} className="relative mb-2">
+                                  <img
+                                    src={image}
+                                    alt={hotel.nom}
+                                    className="hotel-image rounded-md max-h-48 mx-auto"
+                                  />
+                                  {editing && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        removeImageFromHotelPersonnalise(
+                                          index,
+                                          imgIndex
+                                        )
+                                      }
+                                      className="absolute top-0 right-0"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+
+                            {editing && (
+                              <div className="mt-4">
+                                <Label className="block mb-2">
+                                  Ajouter une image (URL):
+                                </Label>
+                                <div className="flex gap-2">
+                                  <Input
+                                    type="text"
+                                    placeholder="https://example.com/image.jpg"
+                                    value={
+                                      hotelImages[`personalized-${index}`] || ""
+                                    }
+                                    onChange={(e) =>
+                                      setHotelImages({
+                                        ...hotelImages,
+                                        [`personalized-${index}`]:
+                                          e.target.value,
+                                      })
+                                    }
+                                    className="flex-1"
+                                  />
+                                  <Button
+                                    onClick={() =>
+                                      addImageToHotelPersonnalise(
+                                        index,
+                                        hotelImages[`personalized-${index}`] ||
+                                          ""
+                                      )
+                                    }
+                                  >
+                                    <ImageIcon className="h-4 w-4 mr-2" />
+                                    Ajouter
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {editing && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeHotelPersonnalise(index)}
+                              className="ml-2"
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
 
         <div
           className="p-3 my-4 rounded"

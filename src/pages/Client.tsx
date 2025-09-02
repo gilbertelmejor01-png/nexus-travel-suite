@@ -45,6 +45,7 @@ import { useTranslation } from "react-i18next";
 
 interface Cliente {
   id: string;
+  nombre: string;
   email: string;
   telefono: string;
   destino: {
@@ -81,6 +82,7 @@ const Client = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Cliente | null>(null);
   const [formData, setFormData] = useState<{
+    nombre: string;
     email: string;
     telefono: string;
     destino: {
@@ -90,6 +92,7 @@ const Client = () => {
     };
     estado: "pendiente" | "revision" | "pago" | "firmado" | "finalizado";
   }>({
+    nombre: "",
     email: "",
     telefono: "",
     destino: {
@@ -159,7 +162,7 @@ const Client = () => {
   };
 
   const guardarCliente = async () => {
-    if (!formData.email || !formData.telefono || !formData.destino.pais) {
+    if ( !formData.nombre || !formData.email || !formData.telefono || !formData.destino.pais) {
       toast({
         title: t("error_title"),
         description: t("processing_error"),
@@ -249,6 +252,7 @@ const Client = () => {
   const editarCliente = (cliente: Cliente) => {
     setEditingClient(cliente);
     setFormData({
+      nombre: cliente.nombre,
       email: cliente.email,
       telefono: cliente.telefono,
       destino: cliente.destino,
@@ -259,6 +263,7 @@ const Client = () => {
 
   const resetForm = () => {
     setFormData({
+      nombre: "",
       email: "",
       telefono: "",
       destino: {
@@ -306,6 +311,18 @@ const Client = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
+               <div>
+                <Label htmlFor="nombre">{t("associated_nombre")}</Label>
+                <Input
+                  id="nombre"
+                  type="nombre"
+                  value={formData.nombre}
+                  onChange={(e) =>
+                    setFormData({ ...formData, nombre: e.target.value })
+                  }
+                  placeholder={t("client_nombre_placeholder")}
+                />
+              </div>
               <div>
                 <Label htmlFor="email">{t("associated_email")}</Label>
                 <Input
@@ -435,6 +452,7 @@ const Client = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                 <TableHead>{t("nombre")}</TableHead>
                 <TableHead>{t("associated_email")}</TableHead>
                 <TableHead>{t("phone")}</TableHead>
                 <TableHead>{t("destination")}</TableHead>
@@ -447,6 +465,7 @@ const Client = () => {
             <TableBody>
               {clientes.map((cliente) => (
                 <TableRow key={cliente.id}>
+                   <TableCell>{cliente.nombre}</TableCell>
                   <TableCell>{cliente.email}</TableCell>
                   <TableCell>{cliente.telefono}</TableCell>
                   <TableCell>{cliente.destino.pais}</TableCell>
