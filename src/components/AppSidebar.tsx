@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { TrialProgress } from "@/components/TrialProgress";
 
 // Navigation items ahora usan claves de traducción en lugar de texto fijo
 const navigationItems = [
@@ -144,6 +145,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Trial Progress Bar */}
+        <TrialProgress collapsed={collapsed} />
 
         {/* Logout section */}
         <div className="mt-auto pt-4 border-t border-sidebar-border">

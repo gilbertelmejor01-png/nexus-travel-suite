@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import LanguageSelector from "./components/LanguageSelector"; // Importa el selector de idioma
+import { TrialNotification } from "@/components/TrialNotification";
 
 // Import your pages
 import Login from "./pages/Login";
@@ -38,6 +39,9 @@ const App = () => {
       <div className="fixed top-4 right-4 z-50">
         <LanguageSelector />
       </div>
+
+      {/* Notificación de Trial Global */}
+      {currentUser && <TrialNotification />}
 
       <Routes>
         {/* Public routes */}

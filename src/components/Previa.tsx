@@ -786,176 +786,90 @@ ${JSON.stringify(editedData, null, 2)}`;
         </div>
       )}
 
-      {/* Header principal con diseño profesional */}
       <div
-        className="relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 p-8 mb-8 overflow-hidden"
-        style={{ 
-          background: `linear-gradient(135deg, ${editedData.themeColor}15, ${editedData.themeColor}05)`,
-          borderColor: editedData.themeColor + '30'
-        }}
+        className="header-box text-center py-4 rounded-lg mb-6"
+        style={{ backgroundColor: editedData.themeColor + "20" }}
       >
-        {/* Elementos decorativos de fondo */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200 to-purple-200 rounded-full -translate-y-16 translate-x-16 opacity-20"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-purple-200 to-blue-200 rounded-full translate-y-12 -translate-x-12 opacity-20"></div>
-        <div className="absolute top-1/2 left-1/2 w-16 h-16 bg-gradient-to-r from-blue-300 to-purple-300 rounded-full -translate-x-1/2 -translate-y-1/2 opacity-10"></div>
         {editing ? (
-          <div className="space-y-6">
-            <div className="text-center">
-              <Label className="block mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                URL del Logo
-              </Label>
-              <Input
-                value={editedData.logoUrl}
-                onChange={(e) => handleChange("logoUrl", e.target.value)}
-                className="w-full max-w-md mx-auto border-2 border-gray-200 focus:border-blue-400 rounded-xl px-4 py-3 text-center"
-                placeholder="Ingresa la URL del logo"
-              />
-            </div>
-            <div className="text-center">
-              <Label className="block mb-3 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                Título del Viaje
-              </Label>
-              <Input
-                value={editedData.titreVoyage}
-                onChange={(e) => handleChange("titreVoyage", e.target.value)}
-                className="w-full max-w-lg mx-auto border-2 border-gray-200 focus:border-blue-400 rounded-xl px-4 py-3 text-center text-lg font-medium"
-                placeholder="Ingresa el título del viaje"
-              />
-            </div>
+          <div className="mb-4">
+            <Label className="block mb-2">URL del Logo:</Label>
+            <Input
+              value={editedData.logoUrl}
+              onChange={(e) => handleChange("logoUrl", e.target.value)}
+              className="mb-4"
+            />
+            <Label className="block mb-2">Título del Viaje:</Label>
+            <Input
+              value={editedData.titreVoyage}
+              onChange={(e) => handleChange("titreVoyage", e.target.value)}
+            />
           </div>
         ) : (
-          <div className="relative">
-            {/* Logo con efecto de sombra y marco */}
-            <div className="flex justify-center mb-6">
-              <div className="relative group">
-                <div className="absolute -inset-2 bg-gradient-to-r from-blue-400 to-purple-500 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-300"></div>
-                <div className="relative bg-white rounded-2xl p-4 shadow-xl border border-gray-100">
-                  <img
-                    src={editedData.logoUrl}
-                    alt="Logo Flowmatic"
-                    className="h-20 w-auto mx-auto object-contain"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Título principal con diseño elegante */}
-            <div className="text-center mb-6">
-              <div className="relative inline-block">
-                <h1 className="text-4xl md:text-5xl font-bold text-gray-800 mb-2 relative z-10">
-                  {editedData.titreVoyage}
-                </h1>
-                {/* Línea decorativa debajo del título */}
-                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-              </div>
-              
-              {/* Subtítulo con estilo */}
-              <div className="mt-4">
-                <p className="text-lg text-gray-600 font-medium tracking-wide">
-                  Experiencia de Viaje Premium
-                </p>
-              </div>
-            </div>
-          </div>
+          <>
+            <img
+              src={editedData.logoUrl}
+              alt="Logo Néogusto"
+              className="mx-auto h-16 mb-4"
+            />
+            <h1 className="text-2xl font-bold text-gray-800">
+              {editedData.titreVoyage}
+            </h1>
+          </>
         )}
-        {/* Sección de destino con diseño elegante */}
-        <div className="text-center mt-8">
+        <h1
+          className="text-xl font-semibold mt-2"
+          style={{ color: editedData.themeColor }}
+        >
           {editing ? (
-            <div className="space-y-4">
-              <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-                <div className="flex-1 max-w-xs">
-                  <Label className="block mb-2 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                    Tipo de Experiencia
-                  </Label>
-                  <Input
-                    type="text"
-                    value={editedData.titre_immersion}
-                    onChange={(e) => handleChange("titre_immersion", e.target.value)}
-                    className="w-full border-2 border-gray-200 focus:border-blue-400 rounded-xl px-4 py-3 text-center font-medium"
-                    style={{ color: editedData.themeColor }}
-                    placeholder="Immersion au"
-                  />
-                </div>
-                <div className="flex-1 max-w-xs">
-                  <Label className="block mb-2 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                    Destino
-                  </Label>
-                  <Input
-                    type="text"
-                    value={editedData.pays_destination}
-                    onChange={(e) => handleChange("pays_destination", e.target.value)}
-                    className="w-full border-2 border-gray-200 focus:border-blue-400 rounded-xl px-4 py-3 text-center font-medium"
-                    style={{ color: editedData.themeColor }}
-                    placeholder="Portugal"
-                  />
-                </div>
-              </div>
-            </div>
+            <Input
+              type="text"
+              value={editedData.titre_immersion}
+              onChange={(e) => handleChange("titre_immersion", e.target.value)}
+              className="inline-block w-48 mx-2 text-center"
+              style={{ color: editedData.themeColor }}
+            />
           ) : (
-            <div className="relative">
-              {/* Contenedor principal con efectos visuales */}
-              <div className="relative inline-block">
-                <div className="absolute -inset-4 bg-gradient-to-r from-blue-100 to-purple-100 rounded-2xl blur-sm opacity-50"></div>
-                <div className="relative bg-white/80 backdrop-blur-sm rounded-2xl px-8 py-6 shadow-lg border border-white/50">
-                  <h2 
-                    className="text-2xl md:text-3xl font-bold mb-2"
-                    style={{ color: editedData.themeColor }}
-                  >
-                    {editedData.titre_immersion || "Immersion au"}
-                  </h2>
-                  <div className="w-16 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full mx-auto mb-3"></div>
-                  <h3 
-                    className="text-3xl md:text-4xl font-extrabold tracking-wide"
-                    style={{ color: editedData.themeColor }}
-                  >
-                    {editedData.pays_destination || "Destination"}
-                  </h3>
-                </div>
-              </div>
-              
-              {/* Elementos decorativos */}
-              <div className="flex justify-center mt-6 space-x-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <div className="w-2 h-2 bg-purple-400 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-              </div>
-            </div>
+            editedData.titre_immersion || "Immersion au"
+          )}{" "}
+          {editing ? (
+            <Input
+              type="text"
+              value={editedData.pays_destination}
+              onChange={(e) => handleChange("pays_destination", e.target.value)}
+              className="inline-block w-48 mx-2 text-center"
+              style={{ color: editedData.themeColor }}
+            />
+          ) : (
+            editedData.pays_destination || "Destination"
           )}
-        </div>
+        </h1>
       </div>
 
-      {/* Sección Vos Envies con diseño moderno */}
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6 mb-8">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
-              <span className="text-white text-lg">💭</span>
-            </div>
-            <h2 className="text-xl font-bold text-gray-800">
-              {editing ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={editedData.titre_vos_envies}
-                    onChange={(e) =>
-                      handleChange("titre_vos_envies", e.target.value)
-                    }
-                    className="text-xl font-bold border-2 border-gray-200 focus:border-yellow-400 rounded-xl px-4 py-2"
-                    placeholder="VOS ENVIES"
-                  />
-                  <Button
-                    onClick={() => openAiModal("Titre Vos Envies")}
-                    variant="ghost"
-                    size="sm"
-                    className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50 rounded-lg"
-                  >
-                    ✨
-                  </Button>
-                </div>
-              ) : (
-                editedData.titre_vos_envies || "VOS ENVIES"
-              )}
-            </h2>
-          </div>
+      <div className="section my-6">
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-lg font-semibold border-b border-gray-300 pb-2">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_vos_envies}
+                  onChange={(e) =>
+                    handleChange("titre_vos_envies", e.target.value)
+                  }
+                  className="text-lg font-semibold"
+                />
+                <Button
+                  onClick={() => openAiModal("Titre Vos Envies")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_vos_envies || "VOS ENVIES"
+            )}
+          </h2>
           {editing && (
             <Button
               onClick={() => {
@@ -967,37 +881,32 @@ ${JSON.stringify(editedData, null, 2)}`;
               }}
               size="sm"
               variant="outline"
-              className="text-red-600 hover:text-red-800 hover:bg-red-50 border-red-200"
+              className="text-red-600 hover:text-red-800"
             >
               🗑️ Eliminar
             </Button>
           )}
         </div>
-        
         {editing ? (
-          <div className="space-y-4">
-            <div className="relative">
-              <Textarea
-                value={editedData.vos_envies || ""}
-                onChange={(e) => handleChange("vos_envies", e.target.value)}
-                className="w-full border-2 border-gray-200 focus:border-yellow-400 rounded-xl px-4 py-3 h-32 resize-none"
-                placeholder="Ajoutez vos envies ici..."
-              />
-              <Button
-                onClick={() => openAiModal("Contenu Vos Envies")}
-                variant="ghost"
-                size="sm"
-                className="absolute top-2 right-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
-              >
-                ✨
-              </Button>
-            </div>
+          <div className="flex items-start gap-2">
+            <Textarea
+              value={editedData.vos_envies || ""}
+              onChange={(e) => handleChange("vos_envies", e.target.value)}
+              className="flex-1 border border-gray-400 h-24 my-3"
+              placeholder="Ajoutez vos envies ici..."
+            />
+            <Button
+              onClick={() => openAiModal("Contenu Vos Envies")}
+              variant="ghost"
+              size="sm"
+              className="text-yellow-600 hover:text-yellow-700 mt-3"
+            >
+              ✨
+            </Button>
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-xl p-6 min-h-32">
-            <p className="text-gray-700 leading-relaxed">
-              {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
-            </p>
+          <div className="border border-gray-400 h-24 my-3 p-2">
+            {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
           </div>
         )}
       </div>
@@ -1019,10 +928,10 @@ ${JSON.stringify(editedData, null, 2)}`;
           </h2>
           {editing && (
             <div className="flex gap-2">
-            <Button onClick={addNewItineraryEntry} size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Ajouter un jour
-            </Button>
+              <Button onClick={addNewItineraryEntry} size="sm">
+                <Plus className="h-4 w-4 mr-1" />
+                Ajouter un jour
+              </Button>
               <Button
                 onClick={() => {
                   setEditedData((prev) => ({
@@ -1145,15 +1054,15 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <td className="p-2">
                             {editing ? (
                               <div className="flex items-center gap-2">
-                              <Input
-                                value={row.jour}
-                                onChange={(e) =>
-                                  handleItineraryChange(
-                                    index,
-                                    "jour",
-                                    e.target.value
-                                  )
-                                }
+                                <Input
+                                  value={row.jour}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "jour",
+                                      e.target.value
+                                    )
+                                  }
                                   className="flex-1"
                                 />
                                 <Button
@@ -1174,15 +1083,15 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <td className="p-2">
                             {editing ? (
                               <div className="flex items-center gap-2">
-                              <Input
-                                value={row.date}
-                                onChange={(e) =>
-                                  handleItineraryChange(
-                                    index,
-                                    "date",
-                                    e.target.value
-                                  )
-                                }
+                                <Input
+                                  value={row.date}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "date",
+                                      e.target.value
+                                    )
+                                  }
                                   className="flex-1"
                                 />
                                 <Button
@@ -1203,18 +1112,18 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <td className="p-2">
                             {editing ? (
                               <div className="flex items-center gap-2">
-                              <Textarea
-                                value={row.programme}
-                                onChange={(e) =>
-                                  handleItineraryChange(
-                                    index,
-                                    "programme",
-                                    e.target.value
-                                  )
-                                }
+                                <Textarea
+                                  value={row.programme}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "programme",
+                                      e.target.value
+                                    )
+                                  }
                                   className="flex-1"
-                                rows={2}
-                              />
+                                  rows={2}
+                                />
                                 <Button
                                   onClick={() =>
                                     openAiModal(`Día ${index + 1} - Programme`)
@@ -1233,15 +1142,15 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <td className="p-2">
                             {editing ? (
                               <div className="flex items-center gap-2">
-                              <Input
-                                value={row.nuit}
-                                onChange={(e) =>
-                                  handleItineraryChange(
-                                    index,
-                                    "nuit",
-                                    e.target.value
-                                  )
-                                }
+                                <Input
+                                  value={row.nuit}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "nuit",
+                                      e.target.value
+                                    )
+                                  }
                                   className="flex-1"
                                 />
                                 <Button
@@ -1262,15 +1171,15 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <td className="p-2">
                             {editing ? (
                               <div className="flex items-center gap-2">
-                              <Input
-                                value={row.hôtel}
-                                onChange={(e) =>
-                                  handleItineraryChange(
-                                    index,
-                                    "hôtel",
-                                    e.target.value
-                                  )
-                                }
+                                <Input
+                                  value={row.hôtel}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "hôtel",
+                                      e.target.value
+                                    )
+                                  }
                                   className="flex-1"
                                 />
                                 <Button
@@ -1999,65 +1908,21 @@ ${JSON.stringify(editedData, null, 2)}`;
         </div>
       </div>
 
-      {/* Footer elegante con BON VOYAGE */}
-      <div className="mt-12">
+      <div className="footer text-center py-6 border-t border-gray-300 mt-4">
         {editing ? (
-          <div className="text-center">
-            <Label className="block mb-4 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-              Mensaje de Despedida
-            </Label>
-            <Input
-              value={editedData.bonVoyageText}
-              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
-              className="w-full max-w-md mx-auto border-2 border-gray-200 focus:border-blue-400 rounded-xl px-6 py-4 text-center text-xl font-bold"
-              style={{ color: editedData.themeColor }}
-              placeholder="BON VOYAGE !"
-            />
-          </div>
+          <Input
+            value={editedData.bonVoyageText}
+            onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+            className="text-xl font-bold text-center"
+            style={{ color: editedData.themeColor }}
+          />
         ) : (
-          <div className="relative">
-            {/* Contenedor principal del footer */}
-            <div className="relative bg-gradient-to-r from-gray-50 to-blue-50 rounded-3xl p-8 border-2 border-gray-200 shadow-lg">
-              {/* Elementos decorativos de fondo */}
-              <div className="absolute top-4 left-4 w-8 h-8 bg-blue-200 rounded-full opacity-30"></div>
-              <div className="absolute top-8 right-8 w-6 h-6 bg-purple-200 rounded-full opacity-30"></div>
-              <div className="absolute bottom-6 left-1/4 w-4 h-4 bg-blue-300 rounded-full opacity-40"></div>
-              <div className="absolute bottom-4 right-1/4 w-5 h-5 bg-purple-300 rounded-full opacity-40"></div>
-              
-              {/* Contenido principal */}
-              <div className="relative z-10">
-                {/* Línea decorativa superior */}
-                <div className="flex justify-center mb-6">
-                  <div className="w-32 h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-                </div>
-                
-                {/* Mensaje principal */}
-                <h2
-                  className="text-3xl md:text-4xl font-extrabold mb-4 tracking-wide"
-                  style={{ color: editedData.themeColor }}
-                >
-                  {editedData.bonVoyageText}
-                </h2>
-                
-                {/* Subtítulo elegante */}
-                <p className="text-lg text-gray-600 font-medium mb-6">
-                  Que tengas un viaje inolvidable ✈️
-                </p>
-                
-                {/* Línea decorativa inferior */}
-                <div className="flex justify-center">
-                  <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-blue-500 rounded-full"></div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Elementos decorativos adicionales */}
-            <div className="flex justify-center mt-6 space-x-3">
-              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-              <div className="w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{animationDelay: '0.4s'}}></div>
-            </div>
-          </div>
+          <h2
+            className="text-xl font-bold"
+            style={{ color: editedData.themeColor }}
+          >
+            {editedData.bonVoyageText}
+          </h2>
         )}
       </div>
 
