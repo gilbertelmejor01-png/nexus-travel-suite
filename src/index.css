@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Flowmatic Color System */
+    --flowmatic-dark-blue: 208 59% 25%; /* #173F70 */
+    --flowmatic-medium-blue: 207 53% 38%; /* #3173A0 */
+    --flowmatic-teal: 173 57% 38%; /* #2C9283 */
+    --flowmatic-green: 145 43% 60%; /* #4BB385 */
+
+    /* Background and Text */
+    --background: 0 0% 100%;
+    --foreground: 208 59% 25%;
+
+    /* Card Components */
+    --card: 0 0% 100%;
+    --card-foreground: 208 59% 25%;
+
+    /* Popover */
+    --popover: 0 0% 100%;
+    --popover-foreground: 208 59% 25%;
+
+    /* Primary - Using Flowmatic Dark Blue */
+    --primary: 208 59% 25%;
+    --primary-foreground: 0 0% 98%;
+
+    /* Secondary - Using Flowmatic Medium Blue */
+    --secondary: 207 53% 38%;
+    --secondary-foreground: 0 0% 98%;
+
+    /* Muted */
+    --muted: 208 59% 96%;
+    --muted-foreground: 208 25% 45%;
+
+    /* Accent - Using Flowmatic Teal */
+    --accent: 173 57% 38%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Success - Using Flowmatic Green */
+    --success: 145 43% 60%;
+    --success-foreground: 0 0% 98%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders and Inputs */
+    --border: 208 25% 88%;
+    --input: 208 25% 88%;
+    --ring: 173 57% 38%;
+
+    /* Radius */
+    --radius: 0.75rem;
+
+    /* Sidebar - Using Flowmatic Colors */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 208 59% 25%;
+    --sidebar-primary: 173 57% 38%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 208 59% 96%;
+    --sidebar-accent-foreground: 208 59% 25%;
+    --sidebar-border: 208 25% 88%;
+    --sidebar-ring: 145 43% 60%;
+
+    /* Gradients */
+    --gradient-flowmatic: linear-gradient(
+      90deg,
+      hsl(208 59% 25%),
+      hsl(207 53% 38%),
+      hsl(173 57% 38%),
+      hsl(145 43% 60%)
+    );
+    --gradient-subtle: linear-gradient(
+      135deg,
+      hsl(208 59% 97%),
+      hsl(173 57% 95%)
+    );
+
+    /* Shadows */
+    --shadow-flowmatic: 0 10px 30px -10px hsl(208 59% 25% / 0.15);
+    --shadow-glow: 0 0 40px hsl(173 57% 38% / 0.2);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

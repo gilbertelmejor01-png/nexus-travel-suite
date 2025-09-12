@@ -1,0 +1,763 @@
+/* Estilos para Previa2.tsx - Basado en Mustradiseño2.html */
+.doc {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: white;
+  color: #333;
+  line-height: 1.7;
+  font-size: 10.5pt;
+  max-width: 210mm;
+  margin: 0 auto;
+}
+
+:root {
+  --header-grad-a: #d4a574; /* doré doux */
+  --header-grad-b: #8b7355; /* bronze */
+  --hairline: #e0e0e0;
+  --muted: #666;
+}
+
+/* Header raffiné y más compacto */
+.doc .hero-header {
+  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+  position: relative;
+  padding: 16px 20px 20px;
+}
+
+.doc .hero-top {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.doc .brand-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+}
+
+.doc .brand-inline img {
+  height: 28px;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+}
+
+.doc .brand-inline .brand-name {
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+
+.doc .client-name {
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: .3px;
+  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+
+.doc .hero-content h1 {
+  font-size: 2.1rem;
+  font-weight: 300;
+  margin-bottom: .2rem;
+  text-shadow: 1px 1px 3px rgba(0,0,0,.22);
+}
+
+.doc .hero-content p {
+  font-size: 1.02rem;
+  font-weight: 300;
+  opacity: .96;
+}
+
+.doc .main-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2.2rem 2rem;
+}
+
+.doc .section {
+  margin-bottom: 3.2rem;
+}
+
+.doc .section-title {
+  font-size: 1.35rem;
+  color: #2c3e50;
+  font-weight: 500;
+  margin-bottom: 1.6rem;
+  text-align: center;
+  position: relative;
+  padding-bottom: .9rem;
+}
+
+.doc .section-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: var(--header-grad-a);
+}
+
+/* Tableau itinéraire */
+.doc .itineraire-table {
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 1.6rem 0;
+  background: white;
+}
+
+.doc .itineraire-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5pt;
+}
+
+.doc .itineraire-table th {
+  background: #f8f9fa;
+  color: #2c3e50;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.doc .itineraire-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.doc .itineraire-table tr:last-child td {
+  border-bottom: none;
+}
+
+.doc .day-cell {
+  font-weight: 600;
+  color: var(--header-grad-a);
+  white-space: nowrap;
+}
+
+/* Programme détaillé */
+.doc .programme-section {
+  margin: 2.4rem 0;
+}
+
+.doc .prog-day {
+  margin-bottom: 1.8rem;
+}
+
+.doc .prog-title {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: .6rem;
+}
+
+.doc .programme-image {
+  width: 100%;
+  max-width: 760px;
+  height: 280px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin: .6rem 0 1rem;
+  display: block;
+}
+
+.doc .programme-text {
+  max-width: 760px;
+  margin: 0 auto;
+  font-size: 11pt;
+  line-height: 1.8;
+  color: #555;
+  text-align: justify;
+}
+
+/* Services (Inclus / Non inclus) */
+.doc .services-table {
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 2rem 0;
+}
+
+.doc .services-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.doc .services-table th {
+  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  color: #fff;
+  padding: 1.1rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  width: 50%;
+}
+
+.doc .services-table td {
+  padding: 1.4rem;
+  vertical-align: top;
+  width: 50%;
+}
+
+.doc .services-table ul {
+  list-style: none;
+  padding: 0;
+}
+
+.doc .services-table li {
+  padding: .45rem 0 .45rem 1.2rem;
+  font-size: 10.5pt;
+  line-height: 1.6;
+  position: relative;
+}
+
+.doc .inclus-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: .1rem;
+  color: #333;
+  font-weight: 800;
+}
+
+.doc .non-inclus-list li::before {
+  content: "✗";
+  position: absolute;
+  left: 0;
+  top: .1rem;
+  color: #333;
+  font-weight: 800;
+}
+
+/* Prix */
+.doc .prix-section {
+  text-align: center;
+  padding: 2.2rem 2rem;
+  background: #f8f9fa;
+  margin: 2.4rem 0;
+  border-radius: 6px;
+}
+
+.doc .prix-montant {
+  font-size: 2.3rem;
+  color: #2c3e50;
+  font-weight: 300;
+  margin-bottom: .4rem;
+}
+
+.doc .prix-detail {
+  color: #666;
+  font-size: 1.05rem;
+}
+
+/* Hôtels */
+.doc .hotels-section {
+  margin: 2.6rem 0;
+}
+
+.doc .hotels-intro {
+  text-align: center;
+  margin-bottom: 1.6rem;
+  color: #555;
+  font-size: 11pt;
+}
+
+.doc .hotels-list {
+  display: grid;
+  gap: 1.2rem;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.doc .hotel-item {
+  padding: 1.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: white;
+}
+
+.doc .hotel-name {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: .35rem;
+  font-size: 11pt;
+}
+
+.doc .hotel-description {
+  color: #666;
+  font-size: 10pt;
+  line-height: 1.6;
+}
+
+.doc .hotel-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.doc .note-simple {
+  background: #f8f9fa;
+  padding: 1.2rem;
+  border-left: 3px solid var(--header-grad-a);
+  margin: 1.6rem 0;
+  font-size: 10pt;
+  color: #555;
+}
+
+/* Footer */
+.doc .footer-section {
+  background: var(--header-grad-a);
+  color: white;
+  padding: 2.4rem 2rem;
+  margin-top: 3rem;
+  text-align: center;
+}
+
+.doc .footer-section h2 {
+  font-size: 1.7rem;
+  font-weight: 300;
+  margin-bottom: .4rem;
+  text-transform: capitalize;
+}
+
+.doc .footer-section p {
+  font-size: 1.05rem;
+  font-weight: 300;
+  opacity: .95;
+}
+
+/* Conditions */
+.doc .conditions-section {
+  background: #f8f9fa;
+  padding: 2.4rem 2rem;
+  border-top: 1px solid var(--hairline);
+}
+
+.doc .conditions-title {
+  text-align: center;
+  font-size: 1.25rem;
+  color: #2c3e50;
+  font-weight: 500;
+  margin-bottom: 1.6rem;
+}
+
+.doc .conditions-content {
+  max-width: 760px;
+  margin: 0 auto;
+  background: white;
+  padding: 1.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  font-size: 10pt;
+  line-height: 1.7;
+  color: #555;
+}
+
+/* Estilos para Previa3.tsx - Basado en Mustradiseño3.html */
+:root {
+  --brand-bg: #195F96; /* Bleu header */
+  --brand-green: #06A37A; /* Vert pétard Inclus */
+  --brand-red: #E53935; /* Rouge vif Non inclus */
+  --day-blue: #1A74AA; /* Bleu pour libellés Jour */
+  --text: #0f172a;
+  --muted: #64748b;
+  --paper: #ffffff;
+  --paper-alt: #f8fafc;
+  --stroke: #e2e8f0;
+}
+
+.document {
+  font-family: Arial, sans-serif;
+  background: var(--paper-alt);
+  color: var(--text);
+  font-size: 11pt;
+  line-height: 1.6;
+  max-width: 210mm;
+  margin: 16px auto;
+  background: var(--paper);
+  box-shadow: 0 0 24px rgba(2,6,23,0.08);
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+/* Header */
+.document .cover {
+  background: var(--brand-bg);
+  color: white;
+  padding: 26px 24px 72px 24px;
+}
+
+.document .cover-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.document .brand {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: -6px;
+  margin-top: -12px;
+}
+
+.document .brand img {
+  height: 38px;
+}
+
+.document .brand h3 {
+  font-size: 0.72rem;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin: 0 0 1px 0;
+}
+
+.document .brand p {
+  font-size: 0.62rem;
+  line-height: 1.1;
+  margin: 2px 0 0 0;
+}
+
+.document .ref {
+  text-align: right;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  margin-right: -6px;
+  margin-top: -12px;
+}
+
+.document .ref div + div {
+  margin-top: 3px;
+}
+
+.document .cover h1 {
+  font-size: 2.28rem;
+  font-weight: 200;
+  text-align: center;
+  margin: 30px 0 0;
+}
+
+/* Layout */
+.document .layout {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+}
+
+.document .sidebar {
+  background: var(--paper-alt);
+  border-right: 1px solid var(--stroke);
+  padding: 18px;
+}
+
+.document .side-block + .side-block {
+  margin-top: 16px;
+}
+
+.document .side-title {
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .12rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.document .pill {
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: .92rem;
+}
+
+.document .price-card {
+  text-align: center;
+  padding: 14px 12px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+}
+
+.document .price-main {
+  font-family: Georgia, serif;
+  font-size: 2rem;
+  font-weight: 300;
+}
+
+.document .price-sub {
+  font-size: .95rem;
+  color: var(--muted);
+}
+
+/* Sections */
+.document .content {
+  padding: 18px;
+}
+
+.document .section {
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.document .sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.document .sec-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.document .badge {
+  font-size: .75rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1e40af;
+  border: 1px solid #dbeafe;
+}
+
+/* Timeline Itinéraire */
+.document .timeline {
+  display: grid;
+  grid-template-columns: 110px 1fr 90px;
+  gap: 10px;
+  width: 100%;
+}
+
+.document .timeline .row {
+  display: contents;
+}
+
+.document .t-jour {
+  font-weight: 800;
+  color: var(--day-blue);
+}
+
+.document .t-program {
+  border-left: 2px dashed var(--stroke);
+  padding-left: 10px;
+}
+
+.document .t-program p {
+  margin-bottom: 6px;
+}
+
+.document .t-nuit {
+  color: var(--muted);
+}
+
+/* Programme détaillé */
+.document .prog-item {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--stroke);
+}
+
+.document .prog-item:first-child {
+  border-top: 0;
+}
+
+.document .prog-day {
+  display: grid;
+  align-content: start;
+}
+
+.document .dnum {
+  font-weight: 800;
+  color: var(--day-blue);
+}
+
+.document .dtitle {
+  font-weight: 700;
+}
+
+.document .prog-body img {
+  width: 100%;
+  border-radius: 10px;
+  margin: 8px 0 10px;
+}
+
+.document .prog-body p {
+  text-align: justify;
+}
+
+/* Services */
+.document .grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.document .card {
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.document .card-head {
+  padding: 10px 14px;
+  color: white;
+  font-weight: 700;
+}
+
+.document .card-head.green,
+.document .card-head.red {
+  background: var(--brand-bg) !important;
+  color: #fff;
+}
+
+.document .card-body {
+  padding: 12px 14px;
+  background: var(--paper);
+}
+
+.document .list-clean {
+  list-style: none;
+}
+
+.document .list-clean li {
+  padding: 7px 0 7px 18px;
+  border-bottom: 1px dotted var(--stroke);
+  position: relative;
+  font-size: .95rem;
+}
+
+.document .list-clean li:last-child {
+  border-bottom: 0;
+}
+
+.document .list-clean li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--brand-bg);
+  font-weight: 800;
+}
+
+.document .list-clean.neg li::before {
+  content: "✗";
+  color: var(--brand-bg);
+}
+
+/* Hôtels */
+.document .hotels-intro {
+  background: #f8f9fa;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border-left: 4px solid var(--day-blue);
+  margin-bottom: 12px;
+}
+
+.document .hotels-list ul {
+  list-style: none;
+  padding: 0;
+}
+
+.document .hotels-list li {
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.document .hotel-image {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.document .note-box {
+  padding: 8px 0;
+  font-style: italic;
+  color: #555;
+}
+
+/* CTA */
+.document .cta {
+  text-align: center;
+  padding: 22px;
+  background: var(--brand-bg);
+  color: white;
+}
+
+.document .cta h2 {
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+}
+
+/* Conditions */
+.document .conditions {
+  background: var(--paper-alt);
+  border-top: 2px solid var(--stroke);
+  padding: 16px 18px;
+}
+
+.document .conditions h3 {
+  text-align: center;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.document .conditions .box {
+  max-width: 85%;
+  margin: 0 auto;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 14px;
+  color: var(--muted);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .doc, .document {
+    padding: 15px;
+  }
+  
+  .document .content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .document .services-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .doc .header-section h1,
+  .document .hero-header h1 {
+    font-size: 2rem;
+  }
+}
