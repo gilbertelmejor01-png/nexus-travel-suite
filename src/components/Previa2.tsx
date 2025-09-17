@@ -147,33 +147,36 @@ FORMATO DE RESPUESTA:
 - Explicación breve para el usuario
 - Resultado aplicable (texto o JSON según el caso)
 
-${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ''}
+${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
 
 DATOS ACTUALES DEL DOCUMENTO:
 ${JSON.stringify(editedData, null, 2)}`;
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt
-            },
-            {
-              role: "user",
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4",
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt,
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Error de API: ${response.status}`);
@@ -184,15 +187,15 @@ ${JSON.stringify(editedData, null, 2)}`;
 
       if (aiResponse) {
         setAiResponse(aiResponse);
-        
+
         // Intentar parsear si es JSON
         try {
           const parsedResponse = JSON.parse(aiResponse);
-          if (parsedResponse && typeof parsedResponse === 'object') {
+          if (parsedResponse && typeof parsedResponse === "object") {
             // Aplicar cambios automáticamente si es JSON válido
             setEditedData({
               ...editedData,
-              ...parsedResponse
+              ...parsedResponse,
             });
           }
         } catch (e) {
@@ -221,13 +224,18 @@ ${JSON.stringify(editedData, null, 2)}`;
     if (data && !editedData) {
       setEditedData({
         titreVoyage: "Votre voyage avec Néogusto",
-        logoUrl: "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
-        imageProgrammeUrl: "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
+        logoUrl:
+          "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
+        imageProgrammeUrl:
+          "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
         bonVoyageText: "BON VOYAGE !",
         vos_envies: "",
-        note_hebergement: "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
-        note_programme: "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
-        intro_hebergements: "Hébergements sélectionnés pour leur confort, charme et localisation.",
+        note_hebergement:
+          "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
+        note_programme:
+          "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
+        intro_hebergements:
+          "Hébergements sélectionnés pour leur confort, charme et localisation.",
         // Valores por defecto para los títulos
         titre_vos_envies: "VOS ENVIES",
         titre_itineraire_bref: "VOTRE ITINÉRAIRE EN BREF",
@@ -453,8 +461,28 @@ ${JSON.stringify(editedData, null, 2)}`;
     const hotels = extractHotels();
     if (hotelIndex >= hotels.length) return;
 
-    // En una implementación real, actualizaríamos el estado para incluir la nueva imagen
-    // Esta es una simplificación para demostrar la funcionalidad
+    // Actualizar el estado para incluir la nueva imagen
+    const hotelName = hotels[hotelIndex].nom;
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    
+    // Buscar el hotel por nombre y añadir la imagen
+    const hotelIndexInPersonalized = updatedHotels.findIndex(
+      hotel => hotel.nom === hotelName
+    );
+    
+    if (hotelIndexInPersonalized !== -1) {
+      const currentImages = updatedHotels[hotelIndexInPersonalized].images || [];
+      updatedHotels[hotelIndexInPersonalized] = {
+        ...updatedHotels[hotelIndexInPersonalized],
+        images: [...currentImages, newImageUrl.trim()],
+      };
+
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: updatedHotels,
+      });
+    }
+
     setNewImageUrl("");
   };
 
@@ -724,16 +752,13 @@ ${JSON.stringify(editedData, null, 2)}`;
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800">🎨 Rediseño Inteligente</h3>
-              <p className="text-sm text-gray-600">Usa IA para rediseñar toda la plantilla</p>
+             
+              <p className="text-sm text-gray-600">
+                Usa IA para rediseñar toda la plantilla
+              </p>
             </div>
             <div className="flex items-end">
-              <Button
-                onClick={() => openAiModal("rediseñar_plantilla")}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              >
-                🎨 Rediseñar Toda la Plantilla con IA
-              </Button>
+              
             </div>
           </div>
         </div>
@@ -773,19 +798,14 @@ ${JSON.stringify(editedData, null, 2)}`;
               >
                 {aiLoading ? "🤖 Procesando..." : "✨ Aplicar con IA"}
               </Button>
-              <Button
-                onClick={() => setShowAiModal(false)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowAiModal(false)} variant="outline">
                 ❌ Cerrar
               </Button>
             </div>
             {aiResponse && (
               <div className="mt-4 p-4 bg-gray-50 rounded">
                 <h4 className="font-semibold mb-2">Respuesta de la IA:</h4>
-                <div className="whitespace-pre-wrap text-sm">
-                  {aiResponse}
-                </div>
+                <div className="whitespace-pre-wrap text-sm">{aiResponse}</div>
               </div>
             )}
           </div>
@@ -803,12 +823,70 @@ ${JSON.stringify(editedData, null, 2)}`;
         </div>
         <div className="hero-content">
           <h1>{editedData.titreVoyage}</h1>
-          <p>Programme sur mesure — {editedData.table_itineraire_bref.length} jours</p>
+          <p>
+            Programme sur mesure — {editedData.table_itineraire_bref.length}{" "}
+            jours
+          </p>
         </div>
       </div>
 
       {/* CONTENIDO PRINCIPAL */}
       <div className="main-content">
+        {/* Vos Envies */}
+        <section className="section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_vos_envies}
+                  onChange={(e) =>
+                    handleChange("titre_vos_envies", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("titre_vos_envies")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+                <Button
+                  onClick={() => handleChange("titre_vos_envies", "")}
+                  size="sm"
+                  variant="destructive"
+                >
+                  🗑️
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_vos_envies
+            )}
+          </h2>
+          {editing ? (
+            <div className="flex items-start gap-2">
+              <Textarea
+                value={editedData.vos_envies || ""}
+                onChange={(e) => handleChange("vos_envies", e.target.value)}
+                className="flex-1 border border-gray-400 h-24 my-3"
+                placeholder="Ajoutez vos envies ici..."
+              />
+              <Button
+                onClick={() => openAiModal("Contenu Vos Envies")}
+                variant="ghost"
+                size="sm"
+                className="text-yellow-600 hover:text-yellow-700 mt-3"
+              >
+                ✨
+              </Button>
+            </div>
+          ) : (
+            <div className="border border-gray-400 h-24 my-3 p-2">
+              {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+            </div>
+          )}
+        </section>
+
         {/* Itinéraire */}
         <section className="section">
           <h2 className="section-title">
@@ -816,7 +894,9 @@ ${JSON.stringify(editedData, null, 2)}`;
               <div className="flex items-center gap-2">
                 <Input
                   value={editedData.titre_itineraire_bref}
-                  onChange={(e) => handleChange("titre_itineraire_bref", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("titre_itineraire_bref", e.target.value)
+                  }
                   className="flex-1"
                 />
                 <Button
@@ -833,35 +913,294 @@ ${JSON.stringify(editedData, null, 2)}`;
                 >
                   🗑️
                 </Button>
+                <Button onClick={addNewItineraryEntry} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter un jour
+                </Button>
               </div>
             ) : (
               editedData.titre_itineraire_bref
             )}
           </h2>
-          <div className="itineraire-table">
-            <table>
-              <thead>
-                <tr>
-                  <th>Jour</th>
-                  <th>Date</th>
-                  <th>Programme</th>
-                  <th>Hébergement</th>
-                </tr>
-              </thead>
-              <tbody>
-                {editedData.table_itineraire_bref.map((row, index) => (
-                  <tr key={index}>
-                    <td className="day-cell">{row.jour}</td>
-                    <td>{row.date}</td>
-                    <td>{row.programme}</td>
-                    <td>{row.nuit}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="itinerary" type="itinerary">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="itineraire-table"
+                >
+                  <table>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_jour}
+                              onChange={(e) =>
+                                handleChange("titre_jour", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_jour || "JOUR"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_date}
+                              onChange={(e) =>
+                                handleChange("titre_date", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_date || "DATE"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_programme_table}
+                              onChange={(e) =>
+                                handleChange(
+                                  "titre_programme_table",
+                                  e.target.value
+                                )
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_programme_table || "PROGRAMME"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_nuit}
+                              onChange={(e) =>
+                                handleChange("titre_nuit", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_nuit || "NUIT"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_hotel}
+                              onChange={(e) =>
+                                handleChange("titre_hotel", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_hotel || "HÔTEL"
+                          )}
+                        </th>
+                        {editing && <th>Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editedData.table_itineraire_bref.map((row, index) => (
+                        <Draggable
+                          key={index}
+                          draggableId={index.toString()}
+                          index={index}
+                        >
+                          {(provided) => (
+                            <tr
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="border-b"
+                            >
+                              <td
+                                {...provided.dragHandleProps}
+                                className="text-center"
+                              >
+                                {editing && (
+                                  <GripVertical className="h-4 w-4 text-gray-400" />
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.jour}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "jour",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Jour`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.jour
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.date}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "date",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Date`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.date
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Textarea
+                                      value={row.programme}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "programme",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                      rows={2}
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(
+                                          `Día ${index + 1} - Programme`
+                                        )
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.programme
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.nuit}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "nuit",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Nuit`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.nuit
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.hôtel}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "hôtel",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Hôtel`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.hôtel
+                                )}
+                              </td>
+                              {editing && (
+                                <td>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeItineraryEntry(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </td>
+                              )}
+                            </tr>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+
           <div className="note-simple">
-            <strong>Personnalisation :</strong> Ce programme peut être ajusté en fonction de vos souhaits.
+            <strong>Personnalisation :</strong> Ce programme peut être ajusté en
+            fonction de vos souhaits.
           </div>
         </section>
 
@@ -872,7 +1211,9 @@ ${JSON.stringify(editedData, null, 2)}`;
               <div className="flex items-center gap-2">
                 <Input
                   value={editedData.titre_programme_detaille}
-                  onChange={(e) => handleChange("titre_programme_detaille", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("titre_programme_detaille", e.target.value)
+                  }
                   className="flex-1"
                 />
                 <Button
@@ -936,7 +1277,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                       <div className="flex items-center gap-2">
                         <Input
                           value={editedData.titre_inclus}
-                          onChange={(e) => handleChange("titre_inclus", e.target.value)}
+                          onChange={(e) =>
+                            handleChange("titre_inclus", e.target.value)
+                          }
                           className="flex-1"
                         />
                         <Button
@@ -963,7 +1306,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                       <div className="flex items-center gap-2">
                         <Input
                           value={editedData.titre_non_inclus}
-                          onChange={(e) => handleChange("titre_non_inclus", e.target.value)}
+                          onChange={(e) =>
+                            handleChange("titre_non_inclus", e.target.value)
+                          }
                           className="flex-1"
                         />
                         <Button
@@ -997,7 +1342,13 @@ ${JSON.stringify(editedData, null, 2)}`;
                             <div className="flex items-center gap-2">
                               <Input
                                 value={item}
-                                onChange={(e) => handleListItemChange("inclus", index, e.target.value)}
+                                onChange={(e) =>
+                                  handleListItemChange(
+                                    "inclus",
+                                    index,
+                                    e.target.value
+                                  )
+                                }
                                 className="flex-1"
                               />
                               <Button
@@ -1050,18 +1401,28 @@ ${JSON.stringify(editedData, null, 2)}`;
                             <div className="flex items-center gap-2">
                               <Input
                                 value={item}
-                                onChange={(e) => handleListItemChange("non_inclus", index, e.target.value)}
+                                onChange={(e) =>
+                                  handleListItemChange(
+                                    "non_inclus",
+                                    index,
+                                    e.target.value
+                                  )
+                                }
                                 className="flex-1"
                               />
                               <Button
-                                onClick={() => openAiModal(`non_inclus_${index}`)}
+                                onClick={() =>
+                                  openAiModal(`non_inclus_${index}`)
+                                }
                                 size="sm"
                                 variant="outline"
                               >
                                 ✨
                               </Button>
                               <Button
-                                onClick={() => removeListItem("non_inclus", index)}
+                                onClick={() =>
+                                  removeListItem("non_inclus", index)
+                                }
                                 size="sm"
                                 variant="destructive"
                               >
@@ -1108,7 +1469,9 @@ ${JSON.stringify(editedData, null, 2)}`;
               <div className="flex items-center gap-2">
                 <Input
                   value={editedData.prix_par_personne}
-                  onChange={(e) => handleChange("prix_par_personne", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("prix_par_personne", e.target.value)
+                  }
                   className="flex-1"
                 />
                 <Button
@@ -1133,7 +1496,9 @@ ${JSON.stringify(editedData, null, 2)}`;
               <div className="flex items-center gap-2">
                 <Input
                   value={editedData.titre_hebergements}
-                  onChange={(e) => handleChange("titre_hebergements", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("titre_hebergements", e.target.value)
+                  }
                   className="flex-1"
                 />
                 <Button
@@ -1156,7 +1521,10 @@ ${JSON.stringify(editedData, null, 2)}`;
             )}
           </h2>
           <div className="hotels-intro">
-            <p>Hébergements sélectionnés pour leur charme, confort et situation privilégiée.</p>
+            <p>
+              Hébergements sélectionnés pour leur charme, confort et situation
+              privilégiée.
+            </p>
           </div>
           <div className="hotels-list">
             {editedData.hebergements_personnalises.map((hotel, index) => (
@@ -1174,7 +1542,8 @@ ${JSON.stringify(editedData, null, 2)}`;
             ))}
           </div>
           <div className="note-simple">
-            Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire.
+            Les hébergements sont sujets à disponibilité. Un établissement de
+            catégorie équivalente sera proposé si nécessaire.
           </div>
         </section>
       </div>

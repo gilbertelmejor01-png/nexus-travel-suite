@@ -455,8 +455,28 @@ ${JSON.stringify(editedData, null, 2)}`;
     const hotels = extractHotels();
     if (hotelIndex >= hotels.length) return;
 
-    // En una implementación real, actualizaríamos el estado para incluir la nueva imagen
-    // Esta es una simplificación para demostrar la funcionalidad
+    // Actualizar el estado para incluir la nueva imagen
+    const hotelName = hotels[hotelIndex].nom;
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    
+    // Buscar el hotel por nombre y añadir la imagen
+    const hotelIndexInPersonalized = updatedHotels.findIndex(
+      hotel => hotel.nom === hotelName
+    );
+    
+    if (hotelIndexInPersonalized !== -1) {
+      const currentImages = updatedHotels[hotelIndexInPersonalized].images || [];
+      updatedHotels[hotelIndexInPersonalized] = {
+        ...updatedHotels[hotelIndexInPersonalized],
+        images: [...currentImages, newImageUrl.trim()],
+      };
+
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: updatedHotels,
+      });
+    }
+
     setNewImageUrl("");
   };
 
@@ -717,12 +737,7 @@ ${JSON.stringify(editedData, null, 2)}`;
               <p className="text-sm text-gray-600">Usa IA para rediseñar toda la plantilla</p>
             </div>
             <div className="flex items-end">
-              <Button
-                onClick={() => openAiModal("rediseñar_plantilla")}
-                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              >
-                🎨 Rediseñar Toda la Plantilla con IA
-              </Button>
+             
             </div>
           </div>
         </div>
@@ -796,7 +811,7 @@ ${JSON.stringify(editedData, null, 2)}`;
             <div>Référence: FLO-2025-001</div>
           </div>
         </div>
-        <h1>{editedData.titreVoyage}</h1>
+          <h1>{editedData.titreVoyage}</h1>
       </section>
 
       <div className="layout">
@@ -805,18 +820,73 @@ ${JSON.stringify(editedData, null, 2)}`;
           <div className="side-block">
             <div className="side-title">Destination</div>
             <div className="pill">{editedData.pays_destination}</div>
-          </div>
+        </div>
           <div className="side-block">
             <div className="side-title">Tarif indicatif</div>
             <div className="price-card">
               <div className="price-main">{editedData.prix_par_personne}</div>
               <div className="price-sub">par personne</div>
-            </div>
+      </div>
           </div>
         </aside>
 
         {/* Content */}
         <main className="content">
+          {/* Vos Envies */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_vos_envies}
+                      onChange={(e) => handleChange("titre_vos_envies", e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_vos_envies")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() => handleChange("titre_vos_envies", "")}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_vos_envies
+                )}
+              </div>
+            </div>
+            {editing ? (
+              <div className="flex items-start gap-2">
+                <Textarea
+                  value={editedData.vos_envies || ""}
+                  onChange={(e) => handleChange("vos_envies", e.target.value)}
+                  className="flex-1 border border-gray-400 h-24 my-3"
+                  placeholder="Ajoutez vos envies ici..."
+                />
+                <Button
+                  onClick={() => openAiModal("Contenu Vos Envies")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700 mt-3"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              <div className="border border-gray-400 h-24 my-3 p-2">
+                {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+              </div>
+            )}
+          </section>
+
           {/* Itinéraire en bref */}
           <section className="section">
             <div className="sec-head">
@@ -1010,7 +1080,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                         </div>
                       </li>
                     )}
-                  </ul>
+                    </ul>
                 </div>
               </div>
               <div className="card">
@@ -1092,9 +1162,240 @@ ${JSON.stringify(editedData, null, 2)}`;
                         </div>
                       </li>
                     )}
-                  </ul>
-                </div>
+                    </ul>
+          </div>
               </div>
+          </div>
+        </section>
+
+          {/* Hébergements personnalisés */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_hebergements}
+                      onChange={(e) => handleChange("titre_hebergements", e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_hebergements")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() => handleChange("titre_hebergements", "")}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                    <Button onClick={addNewHotelPersonnalise} size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Ajouter un hôtel
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_hebergements
+                )}
+              </div>
+            </div>
+            
+            <div className="hotels-intro">
+              {editing ? (
+                <Textarea
+                  value={editedData.intro_hebergements || ""}
+                  onChange={(e) => handleChange("intro_hebergements", e.target.value)}
+                  className="w-full"
+                  rows={2}
+                />
+              ) : (
+                <p>{editedData.intro_hebergements}</p>
+              )}
+            </div>
+
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable
+                droppableId="hebergements_personnalises"
+                type="hebergements_personnalises"
+              >
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="hotels-list"
+                  >
+                    {editedData.hebergements_personnalises?.map(
+                      (hotel, index) => (
+                        <Draggable
+                          key={`personalized-${index}`}
+                          draggableId={`personalized-${index}`}
+                          index={index}
+                        >
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="hotel-item"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mb-2"
+                                  >
+                                    {editing && (
+                                      <GripVertical className="h-4 w-4 text-gray-400" />
+                                    )}
+                                  </div>
+
+                                  {editing ? (
+                                    <>
+                                      <div className="mb-2">
+                                        <Label>Nom de l'hôtel:</Label>
+                                        <Input
+                                          value={hotel.nom}
+                                          onChange={(e) =>
+                                            handleHotelPersonnaliseChange(
+                                              index,
+                                              "nom",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-full"
+                                        />
+                                      </div>
+                                      <div className="mb-2">
+                                        <Label>Description:</Label>
+                                        <Input
+                                          value={hotel.description}
+                                          onChange={(e) =>
+                                            handleHotelPersonnaliseChange(
+                                              index,
+                                              "description",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-full"
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="hotel-name">{hotel.nom}</div>
+                                      <div className="hotel-description">{hotel.description}</div>
+                                    </>
+                                  )}
+
+                                  <div className="mt-4">
+                                    {hotel.images.map((image, imgIndex) => (
+                                      <div
+                                        key={imgIndex}
+                                        className="relative mb-2"
+                                      >
+                                        <img
+                                          src={image}
+                                          alt={hotel.nom}
+                                          className="hotel-image"
+                                        />
+                                        {editing && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              removeImageFromHotelPersonnalise(
+                                                index,
+                                                imgIndex
+                                              )
+                                            }
+                                            className="absolute top-0 right-0"
+                                          >
+                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {editing && (
+                                    <div className="mt-4">
+                                      <Label className="block mb-2">
+                                        Ajouter une image (URL):
+                                      </Label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="https://example.com/image.jpg"
+                                          value={
+                                            hotelImages[
+                                              `personalized-${index}`
+                                            ] || ""
+                                          }
+                                          onChange={(e) =>
+                                            setHotelImages({
+                                              ...hotelImages,
+                                              [`personalized-${index}`]:
+                                                e.target.value,
+                                            })
+                                          }
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          onClick={() =>
+                                            addImageToHotelPersonnalise(
+                                              index,
+                                              hotelImages[
+                                                `personalized-${index}`
+                                              ] || ""
+                                            )
+                                          }
+                                        >
+                                          <ImageIcon className="h-4 w-4 mr-2" />
+                                          Ajouter
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {editing && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeHotelPersonnalise(index)}
+                                    className="ml-2"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      )
+                    )}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+
+            <div className="note-box">
+              {editing ? (
+                <Textarea
+                  value={editedData.note_hebergement || ""}
+                  onChange={(e) => handleChange("note_hebergement", e.target.value)}
+                  className="w-full"
+                  rows={2}
+                />
+              ) : (
+                <p>
+                  <strong>NOTE :</strong> {editedData.note_hebergement}
+                </p>
+              )}
             </div>
           </section>
         </main>
@@ -1104,7 +1405,7 @@ ${JSON.stringify(editedData, null, 2)}`;
       <section className="cta">
         <h2>Bon voyage</h2>
         <p>Votre aventure espagnole vous attend</p>
-      </section>
+        </section>
     </div>
   );
 };

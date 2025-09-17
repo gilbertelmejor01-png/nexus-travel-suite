@@ -672,7 +672,7 @@ const AIInteraction = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          Interacción con IA
+          Interacción con FLOTRIP
         </h1>
         <p className="text-muted-foreground">
           Procesa información de viajes usando inteligencia artificial

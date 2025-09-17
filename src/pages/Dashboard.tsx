@@ -100,6 +100,7 @@ const Dashboard = () => {
           const createdAt: Timestamp | undefined = data.createdAt;
           return {
             id: d.id,
+            nombre: data.nombre || "Cliente sin nombre",
             email: data.email,
             destino: data.destino || {
               pais: "Sin destino",
@@ -167,6 +168,7 @@ const Dashboard = () => {
           .slice(0, 5)
           .map((c) => ({
             id: c.id,
+            nombre: c.nombre || "Cliente sin nombre",
             cliente: c.email || "Cliente sin nombre",
             destino: c.destino?.pais || "Sin destino",
             valor: Number(c.destino?.valor) || 0,
@@ -246,6 +248,7 @@ const Dashboard = () => {
   const presupuestosFiltrados = (data.ultimosPresupuestos || []).filter(
     (presupuesto) => {
       if (!presupuesto) return false;
+      const nombre = presupuesto.nombre || "Cliente sin nombre";
       const filtroEstadoBD = mapFiltroToEstado(filtroEstado);
       const matchEstado =
         filtroEstadoBD === "todos" || presupuesto.estado === filtroEstadoBD;
@@ -297,6 +300,7 @@ const Dashboard = () => {
     const csvContent = [
       [t("client"), t("destination"), t("value"), t("status"), t("date")],
       ...presupuestosFiltrados.map((p) => [
+        p.nombre,
         p.cliente,
         p.destino,
         `€${p.valor}`,
@@ -330,8 +334,8 @@ const Dashboard = () => {
 
   const ESTADOS = [
     { value: "pendiente", label: t("pending_status"), color: "bg-yellow-500" },
-    { value: "revision", label: t("in_review"), color: "bg-blue-500" },
-    { value: "pago", label: t("payment_status"), color: "bg-orange-500" },
+    
+    
     { value: "firmado", label: t("signed"), color: "bg-green-500" },
     { value: "finalizado", label: t("completed"), color: "bg-gray-500" },
   ];
@@ -392,7 +396,7 @@ const Dashboard = () => {
         <Card className="hover:shadow-flowmatic transition-all duration-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {t("active_trips")}
+              {t("Facturacion total")}
             </CardTitle>
             <Plane className="h-4 w-4 text-flowmatic-teal" />
           </CardHeader>
@@ -478,7 +482,7 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tabla de Presupuestos */}
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-flowmatic-teal" />
@@ -524,6 +528,7 @@ const Dashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>{t("name")}</TableHead>
                     <TableHead>{t("client")}</TableHead>
                     <TableHead>{t("destination")}</TableHead>
                     <TableHead>{t("value")}</TableHead>
@@ -535,8 +540,9 @@ const Dashboard = () => {
                   {currentItems.map((presupuesto) => (
                     <TableRow key={presupuesto.id}>
                       <TableCell className="font-medium">
-                        {presupuesto.cliente}
+                        {presupuesto.nombre}
                       </TableCell>
+                      <TableCell>{presupuesto.cliente}</TableCell>
                       <TableCell>{presupuesto.destino}</TableCell>
                       <TableCell>
                         €{presupuesto.valor.toLocaleString()}
@@ -655,45 +661,6 @@ const Dashboard = () => {
         </Card>
 
         {/* Alertas Urgentes */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold">{t("urgent_alerts")}</h2>
-              <Badge variant="destructive" className="rounded-full px-2">
-                {data.alertas.length}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {data.alertas.length > 0 ? (
-              data.alertas.map((alerta) => (
-                <div
-                  key={alerta.id}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-sm">
-                      {alerta.nombre || alerta.cliente || "Cliente sin nombre"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {alerta.tipo === "sinRespuesta"
-                        ? t("days_no_response", { count: alerta.dias })
-                        : t("budget_due_soon")}
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    <Clock className="h-4 w-4 mr-1" />
-                    {t("remind")}
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-muted-foreground">
-                {t("no_alerts")}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* Recomendación AI */}
@@ -706,7 +673,7 @@ const Dashboard = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm leading-relaxed mb-4">
-            {data.recomendacionAI || t("ai_default_message")}
+            {t("ai_default_message")}
           </p>
           <Button variant="teal" className="w-full sm:w-auto">
             {t("apply_suggestion")}

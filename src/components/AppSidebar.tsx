@@ -36,11 +36,11 @@ import { TrialProgress } from "@/components/TrialProgress";
 const navigationItems = [
   { titleKey: "executive_summary", url: "/dashboard", icon: Home },
   { titleKey: "process_with_ai", url: "/ai-interaction", icon: Bot },
-  { titleKey: "analytical_dashboard", url: "/analytics", icon: BarChart3 },
-  { titleKey: "advanced_comparisons", url: "/comparisons", icon: TrendingUp },
+  //{ titleKey: "analytical_dashboard", url: "/analytics", icon: BarChart3 },
+  //{ titleKey: "advanced_comparisons", url: "/comparisons", icon: TrendingUp },
   { titleKey: "client", url: "/cliente", icon: User },
-  { titleKey: "itinerary_creation", url: "/manual-creation", icon: Plane },
-  { titleKey: "unified_history", url: "/history", icon: History },
+  //{ titleKey: "itinerary_creation", url: "/manual-creation", icon: Plane },
+  //{ titleKey: "unified_history", url: "/history", icon: History },
   { titleKey: "profile", url: "/perfil", icon: User },
 ];
 

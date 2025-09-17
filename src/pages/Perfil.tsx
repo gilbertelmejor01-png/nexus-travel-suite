@@ -26,6 +26,7 @@ interface PerfilEmpresa {
     valor: string;
   };
   copyright: string;
+  CodicionesGenrales: string;
   conexionesIA?: {
     creacionItinerario: string;
     itinerarioRapido: string;
@@ -43,6 +44,7 @@ export default function Perfil() {
       valor: "",
     },
     copyright: t("default_copyright"),
+    CodicionesGenrales: "",
     conexionesIA: {
       creacionItinerario: "",
       itinerarioRapido: "",
@@ -234,7 +236,20 @@ export default function Perfil() {
                 placeholder={t("company_name_placeholder")}
               />
             </div>
-
+            <div>
+              <Label htmlFor="Codiciones genrales">
+                {t("Codiciones generales")}
+              </Label>
+              <Textarea
+                id="CodicionesGenerales"
+                value={perfil.CodicionesGenrales}
+                onChange={(e) =>
+                  setPerfil({ ...perfil, CodicionesGenrales: e.target.value })
+                }
+                placeholder={t("Codiciones generales_placeholder")}
+                rows={3}
+              />
+            </div>
             <div>
               <Label htmlFor="copyright">{t("copyright")}</Label>
               <Textarea

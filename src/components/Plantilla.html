@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proposition de Voyage — Modèle C (Flowtrip)</title>
+<style>
+:root {
+--brand-color: #667eea; /* Couleur principale personnalisable */
+--brand-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+--dark: #0f172a;
+--light: #f8fafc;
+--gray: #64748b;
+--paper: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+background: #fff;
+color: var(--dark);
+line-height: 1.6;
+font-size: 15px;
+}
+.container {
+max-width: 1200px;
+margin: 0 auto;
+background: #fff;
+}
+/* Hero Section - Design épuré */
+.hero {
+min-height: 400px;
+background: var(--brand-gradient);
+position: relative;
+display: flex;
+align-items: center;
+justify-content: center;
+overflow: hidden;
+}
+.hero::before {
+content: '';
+position: absolute;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60"
+xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff"
+fill-opacity="0.05"><path d="M36
+34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6
+34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/></g></g></svg>')
+repeat;
+}
+.hero-content {
+text-align: center;
+color: white;
+z-index: 1;
+padding: 40px 20px;
+max-width: 800px;
+}
+.hero-logo {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 15px;
+margin-bottom: 40px;
+}
+.hero-logo img {
+height: 50px;
+filter: brightness(0) invert(1);
+}
+.hero-logo h2 {
+font-size: 1.8rem;
+font-weight: 300;
+letter-spacing: 3px;
+text-transform: uppercase;
+}
+.hero h1 {
+font-size: 3.5rem;
+font-weight: 200;
+margin-bottom: 15px;
+letter-spacing: -1px;
+}
+.hero-subtitle {
+font-size: 1.2rem;
+opacity: 0.9;
+font-weight: 300;
+}
+.hero-meta {
+position: absolute;
+top: 20px;
+right: 20px;
+text-align: right;
+color: white;
+font-size: 0.85rem;
+opacity: 0.8;
+}
+/* Main Layout - Changé pour single column */
+.main-content {
+padding: 40px;
+max-width: 1200px;
+margin: 0 auto;
+}
+/* Content Sections */
+.content-section {
+margin-bottom: 50px;
+}
+.section-header {
+margin-bottom: 30px;
+}
+.section-title {
+font-size: 1.8rem;
+font-weight: 300;
+color: var(--dark);
+margin-bottom: 10px;
+}
+.section-subtitle {
+color: var(--gray);
+font-size: 0.95rem;
+}
+/* Timeline Design */
+.timeline {
+position: relative;
+padding-left: 40px;
+}
+.timeline::before {
+content: '';
+position: absolute;
+left: 10px;
+top: 0;
+bottom: 0;
+width: 2px;
+background: var(--brand-gradient);
+}
+.timeline-item {
+position: relative;
+padding-bottom: 40px;
+}
+.timeline-item::before {
+content: '';
+position: absolute;
+left: -35px;
+top: 5px;
+width: 12px;
+height: 12px;
+background: white;
+border: 3px solid var(--brand-color);
+border-radius: 50%;
+}
+.timeline-date {
+font-weight: 600;
+color: var(--brand-color);
+margin-bottom: 8px;
+font-size: 0.9rem;
+text-transform: uppercase;
+letter-spacing: 1px;
+}
+.timeline-content {
+background: white;
+padding: 20px;
+border-radius: 15px;
+box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+border-left: 4px solid var(--brand-color);
+}
+.timeline-location {
+display: inline-block;
+margin-top: 10px;
+padding: 5px 12px;
+background: var(--light);
+border-radius: 20px;
+font-size: 0.85rem;
+color: var(--gray);
+}
+/* Programme Cards */
+.programme-grid {
+display: grid;
+gap: 25px;
+}
+.programme-card {
+display: grid;
+grid-template-columns: 250px 1fr;
+gap: 30px;
+padding: 25px;
+background: white;
+border-radius: 20px;
+box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.programme-image {
+width: 100%;
+height: 180px;
+object-fit: cover;
+border-radius: 15px;
+}
+.programme-info {
+display: flex;
+flex-direction: column;
+justify-content: center;
+}
+.programme-day {
+display: inline-block;
+padding: 6px 14px;
+background: var(--brand-gradient);
+color: white;
+border-radius: 20px;
+font-weight: 600;
+font-size: 0.85rem;
+margin-bottom: 12px;
+width: fit-content;
+}
+.programme-title {
+font-size: 1.3rem;
+font-weight: 600;
+color: var(--dark);
+margin-bottom: 12px;
+}
+.programme-desc {
+color: var(--gray);
+line-height: 1.7;
+}
+/* Services Cards */
+.services-grid {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 30px;
+}
+.service-card {
+background: white;
+border-radius: 20px;
+overflow: hidden;
+box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.service-header {
+padding: 20px;
+font-weight: 600;
+font-size: 1.1rem;
+color: white;
+background: var(--brand-gradient);
+}
+.service-list {
+padding: 25px;
+list-style: none;
+}
+.service-list li {
+padding: 12px 0;
+padding-left: 30px;
+position: relative;
+color: var(--dark);
+border-bottom: 1px solid var(--light);
+}
+.service-list li:last-child {
+border-bottom: none;
+}
+.service-list li::before {
+content: '✓';
+position: absolute;
+left: 0;
+color: var(--brand-color);
+font-weight: bold;
+font-size: 1.1rem;
+}
+.service-list.excluded li::before {
+content: '✗';
+color: var(--brand-color);
+}
+/* Hotels Section */
+.hotels-grid {
+display: grid;
+gap: 25px;
+}
+.hotel-card {
+display: grid;
+grid-template-columns: 250px 1fr;
+gap: 25px;
+padding: 25px;
+background: white;
+border-radius: 20px;
+box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.hotel-image {
+width: 100%;
+height: 180px;
+object-fit: cover;
+border-radius: 15px;
+}
+.hotel-info h4 {
+font-size: 1.2rem;
+color: var(--dark);
+margin-bottom: 10px;
+}
+.hotel-info p {
+color: var(--gray);
+line-height: 1.6;
+}
+.hotel-stars {
+display: flex;
+gap: 3px;
+margin-top: 10px;
+color: #f59e0b;
+}
+/* Note Box - Sans fond jaune */
+.note-box {
+margin-top: 20px;
+padding: 15px;
+border-radius: 10px;
+border: 1px solid #e5e7eb;
+}
+.note-box p {
+color: var(--gray);
+font-size: 0.9rem;
+}
+/* Price Info Section - Nouveau */
+.price-info-section {
+background: white;
+border-radius: 25px;
+padding: 40px;
+box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+margin-top: 40px;
+}
+.price-info-grid {
+display: grid;
+grid-template-columns: 2fr 1fr 1fr 1fr;
+gap: 30px;
+align-items: center;
+}
+.price-main {
+text-align: center;
+border-right: 2px solid var(--light);
+padding-right: 30px;
+}
+.price-label {
+font-size: 0.9rem;
+color: var(--gray);
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-bottom: 15px;
+}
+.price-amount {
+font-size: 3rem;
+font-weight: 200;
+color: var(--dark);
+margin-bottom: 10px;
+}
+.price-per {
+color: var(--gray);
+font-size: 0.95rem;
+}
+.info-item {
+text-align: center;
+}
+.info-item h4 {
+font-size: 0.85rem;
+text-transform: uppercase;
+letter-spacing: 1px;
+color: var(--gray);
+margin-bottom: 8px;
+}
+.info-item p {
+color: var(--dark);
+font-weight: 500;
+font-size: 1rem;
+}
+/* CTA Section */
+.cta-section {
+background: var(--brand-gradient);
+color: white;
+padding: 60px 40px;
+text-align: center;
+margin-top: 60px;
+}
+.cta-section h2 {
+font-size: 2.5rem;
+font-weight: 200;
+margin-bottom: 15px;
+text-transform: uppercase;
+letter-spacing: 2px;
+}
+.cta-section p {
+font-size: 1.1rem;
+opacity: 0.9;
+}
+/* Conditions */
+.conditions {
+background: var(--light);
+padding: 40px;
+border-top: 3px solid var(--brand-color);
+}
+.conditions h3 {
+text-align: center;
+font-size: 1.5rem;
+color: var(--dark);
+margin-bottom: 25px;
+font-weight: 300;
+}
+.conditions-content {
+max-width: 900px;
+margin: 0 auto;
+background: white;
+padding: 30px;
+border-radius: 15px;
+color: var(--gray);
+line-height: 1.8;
+}
+/* Responsive */
+@media (max-width: 1024px) {
+.programme-card, .hotel-card {
+grid-template-columns: 1fr;
+}
+.price-info-grid {
+grid-template-columns: 1fr;
+gap: 20px;
+}
+.price-main {
+border-right: none;
+border-bottom: 2px solid var(--light);
+padding-right: 0;
+padding-bottom: 20px;
+}
+}
+@media (max-width: 768px) {
+.hero h1 {
+font-size: 2rem;
+}
+.services-grid {
+grid-template-columns: 1fr;
+}
+.main-content {
+padding: 20px;
+}
+.price-amount {
+font-size: 2.5rem;
+}
+}
+/* Print */
+@media print {
+.programme-card,
+.service-card,
+.hotel-card,
+.price-info-section {
+page-break-inside: avoid;
+}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<!-- Hero Section -->
+<section class="hero">
+<div class="hero-meta">
+<div>Proposition de Voyage</div>
+<div>Référence: FLO-2025-001</div>
+</div>
+<div class="hero-content">
+<div class="hero-logo">
+<img
+src="https://res.cloudinary.com/dcyuqvulc/image/upload/v1756804379/FullLogo_Transparent_N
+oBuffer_9_stajge.png" alt="Flowtrip">
+<h2>Flowtrip</h2>
+</div>
+<h1>Votre voyage en Espagne</h1>
+<p class="hero-subtitle">7 jours d'exception • Madrid · Tolède · Ségovie · Ávila</p>
+</div>
+</section>
+<!-- Main Content -->
+<main class="main-content">
+<!-- Itinéraire Section -->
+<section class="content-section">
+<div class="section-header">
+<h3 class="section-title">Votre Itinéraire</h3>
+<p class="section-subtitle">7 jours à travers l'Espagne centrale</p>
+</div>
+<div class="timeline">
+<div class="timeline-item">
+<div class="timeline-date">Jour 1 • Vendredi 14 avril</div>
+<div class="timeline-content">
+<p>Arrivée à Madrid. Accueil et transfert centre-ville. Déjeuner restaurant, visite guidée
+du musée du Prado, balade au parc du Retiro et quartier de la Castellana. Dîner et nuit.</p>
+<span class="timeline-location">Madrid</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 2 • Samedi 15 avril</div>
+<div class="timeline-content">
+<p>Excursion à Tolède : tour panoramique, cathédrale, synagogues Santa María la
+Blanca et del Tránsito, monastère San Juan de los Reyes, église Santo Tomé. Déjeuner local.
+Retour Madrid, dîner et nuit.</p>
+<span class="timeline-location">Madrid</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 3 • Dimanche 16 avril</div>
+<div class="timeline-content">
+<p>Madrid des Austrias, ermitage San Antonio de la Florida, déjeuner. Visite du Palais
+Royal. Transfert vers Ségovie, installation, dîner et nuit.</p>
+<span class="timeline-location">Ségovie</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 4 • Lundi 17 avril</div>
+<div class="timeline-content">
+<p>Ségovie : aqueduc romain, quartier juif, cathédrale, Alcazar, église de la Vera Cruz.
+Après-midi : jardins du palais de la Granja. Dîner et nuit.</p>
+<span class="timeline-location">Ségovie</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 5 • Mardi 18 avril</div>
+<div class="timeline-content">
+<p>Château mudéjar de Coca, forteresse de Cuéllar avec spectacle immersif. Villages
+médiévaux de Sepúlveda et Pedraza. Déjeuner. Retour Ségovie, dîner et nuit.</p>
+<span class="timeline-location">Ségovie</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 6 • Mercredi 19 avril</div>
+<div class="timeline-content">
+<p>Monastère-palais de l'Escorial. Déjeuner. Route vers Ávila : murailles, cathédrale,
+couvent Sainte Thérèse, basilique San Vicente. Installation, dîner et nuit.</p>
+<span class="timeline-location">Ávila</span>
+</div>
+</div>
+<div class="timeline-item">
+<div class="timeline-date">Jour 7 • Jeudi 20 avril</div>
+<div class="timeline-content">
+<p>Transfert vers l'aéroport de Madrid. Fin du voyage.</p>
+<span class="timeline-location">Départ</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Programme Détaillé -->
+<section class="content-section">
+<div class="section-header">
+<h3 class="section-title">Programme Détaillé</h3>
+<p class="section-subtitle">Chaque jour, une nouvelle découverte</p>
+</div>
+<div class="programme-grid">
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1543340713-8a0b2cc4d3d9?q=80&w=1200&auto=for
+mat&fit=crop" alt="Madrid">
+<div class="programme-info">
+<span class="programme-day">Jour 1</span>
+<h4 class="programme-title">Arrivée à Madrid et premières découvertes</h4>
+<p class="programme-desc">Accueil à l'aéroport, transfert centre-ville et déjeuner.
+Visite guidée du prestigieux musée du Prado. Promenade au parc du Buen Retiro et dans le
+quartier de la Castellana. Dîner et nuit à Madrid.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1580674280587-bd1b0a5e5a2a?q=80&w=1200&auto=
+format&fit=crop" alt="Tolède">
+<div class="programme-info">
+<span class="programme-day">Jour 2</span>
+<h4 class="programme-title">Tolède, ville aux trois cultures</h4>
+<p class="programme-desc">Excursion complète à Tolède avec tour panoramique,
+visite de la cathédrale, des synagogues historiques, du monastère San Juan de los Reyes et de
+l'église Santo Tomé. Déjeuner local et retour à Madrid.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1491552772033-3e61a6d2b6bc?q=80&w=1200&auto=
+format&fit=crop" alt="Madrid historique">
+<div class="programme-info">
+<span class="programme-day">Jour 3</span>
+<h4 class="programme-title">Madrid des Austrias & transfert vers Ségovie</h4>
+<p class="programme-desc">Exploration du centre historique : Plaza Mayor, marché
+San Miguel, Plaza de Oriente. Visite de l'ermitage San Antonio de la Florida et du Palais Royal.
+En fin de journée, route vers Ségovie.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1501933531423-9cb1a9cba6de?q=80&w=1200&auto=
+format&fit=crop" alt="Ségovie">
+<div class="programme-info">
+<span class="programme-day">Jour 4</span>
+<h4 class="programme-title">Trésors de Ségovie & jardins de la Granja</h4>
+<p class="programme-desc">Découverte de l'aqueduc romain, du quartier juif, de la
+cathédrale gothique et de l'Alcazar. L'après-midi, visite des somptueux jardins du palais de la
+Granja de San Ildefonso.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1491554047206-0f75f1df9b52?q=80&w=1200&auto=fo
+rmat&fit=crop" alt="Villages médiévaux">
+<div class="programme-info">
+<span class="programme-day">Jour 5</span>
+<h4 class="programme-title">Villages médiévaux & châteaux</h4>
+<p class="programme-desc">Visite du château mudéjar de Coca et de la forteresse de
+Cuéllar avec spectacle immersif. Exploration des villages pittoresques de Sepúlveda et
+Pedraza. Retour à Ségovie pour la nuit.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?q=80&w=1200&auto=f
+ormat&fit=crop" alt="L'Escorial et Ávila">
+<div class="programme-info">
+<span class="programme-day">Jour 6</span>
+<h4 class="programme-title">L'Escorial & ville fortifiée d'Ávila</h4>
+<p class="programme-desc">Visite du monastère-palais de San Lorenzo de El
+Escorial. Après le déjeuner, découverte d'Ávila avec ses murailles médiévales, sa cathédrale, le
+couvent de Sainte Thérèse et la basilique San Vicente.</p>
+</div>
+</div>
+<div class="programme-card">
+<img class="programme-image"
+src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?q=80&w=1200&auto=f
+ormat&fit=crop" alt="Départ">
+<div class="programme-info">
+<span class="programme-day">Jour 7</span>
+<h4 class="programme-title">Retour</h4>
+<p class="programme-desc">Temps libre selon les horaires de vol. Transfert
+accompagné vers l'aéroport de Madrid. Fin de nos services.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Services -->
+<section class="content-section">
+<div class="section-header">
+<h3 class="section-title">Détails de votre voyage</h3>
+<p class="section-subtitle">Tout ce qui est inclus dans votre forfait</p>
+</div>
+<div class="services-grid">
+<div class="service-card">
+<div class="service-header">
+Inclus dans votre voyage
+</div>
+<ul class="service-list">
+<li>Guide accompagnateur francophone</li>
+<li>Guides officiels selon programme</li>
+<li>Transferts en autocar climatisé</li>
+<li>Déjeuners et dîners avec boissons</li>
+<li>Entrées aux sites mentionnés</li>
+<li>Hébergement en hôtels 4 étoiles</li>
+<li>Petit-déjeuner quotidien</li>
+</ul>
+</div>
+<div class="service-card">
+<div class="service-header">
+Non inclus
+</div>
+<ul class="service-list excluded">
+<li>Transport avion ou train</li>
+<li>Prestations non indiquées</li>
+<li>Visites optionnelles</li>
+<li>Repas non précisés</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- Hébergements -->
+<section class="content-section">
+<div class="section-header">
+<h3 class="section-title">Vos Hébergements</h3>
+<p class="section-subtitle">Sélection d'établissements de charme</p>
+</div>
+<div class="hotels-grid">
+<div class="hotel-card">
+<img class="hotel-image"
+src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de
+_2025-07-17_21-42-28_wu28bg.png" alt="Hôtel Madrid">
+<div class="hotel-info">
+<h4>Hôtel 4 étoiles - VILLA</h4>
+<p>Établissement de charme idéalement situé au cœur de Madrid, à proximité des
+principaux sites touristiques et musées.</p>
+<div class="hotel-stars">★★★★☆</div>
+</div>
+</div>
+<div class="hotel-card">
+<img class="hotel-image"
+src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de
+_2025-07-17_21-42-28_wu28bg.png" alt="Hôtel Madrid">
+<div class="hotel-info">
+<h4>Hôtel 4 étoiles - Madrid</h4>
+<p>Confort moderne et services de qualité, avec un accès privilégié aux transports et
+aux quartiers historiques.</p>
+<div class="hotel-stars">★★★★☆</div>
+</div>
+</div>
+</div>
+<div class="note-box">
+<p><strong>Note :</strong> Les hébergements sont sujets à disponibilité. Un
+établissement de catégorie équivalente sera proposé si nécessaire.</p>
+</div>
+</section>
+<!-- Price Info Section - Nouveau placement -->
+<section class="price-info-section">
+<div class="price-info-grid">
+<div class="price-main">
+<div class="price-label">Tarif Indicatif</div>
+<div class="price-amount">1 399 €</div>
+<div class="price-per">par personne (base 30)</div>
+</div>
+<div class="info-item">
+<h4>Durée</h4>
+<p>7 jours / 6 nuits</p>
+</div>
+<div class="info-item">
+<h4>Groupe</h4>
+<p>Base 30 personnes</p>
+</div>
+<div class="info-item">
+<h4>Période</h4>
+<p>14 - 20 avril 2025</p>
+</div>
+</div>
+</section>
+</main>
+<!-- CTA Section -->
+<section class="cta-section">
+<h2>Bon Voyage</h2>
+<p>Votre aventure espagnole vous attend</p>
+</section>
+<!-- Conditions -->
+<section class="conditions" style="display: ${data.conditions_generales ? 'block' : 'none'};">
+<h3>Conditions Générales</h3>
+<div class="conditions-content">
+<p id="conditions-text">${data.conditions_generales || ''}</p>
+</div>
+</section>
+</div>
+</body>
+</html>
