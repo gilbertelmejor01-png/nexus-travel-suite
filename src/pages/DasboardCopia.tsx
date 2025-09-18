@@ -20,8 +20,6 @@ import {
   ChevronRight,
   Clock,
   AlertCircle,
-  Plus,
-  X,
 } from "lucide-react";
 import {
   Table,
@@ -216,46 +214,7 @@ const Dashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
   const [busqueda, setBusqueda] = useState("");
-  const [selectedRow, setSelectedRow] = useState<string | null>(null);
-  const [showBudgetModal, setShowBudgetModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  const [selectedAction, setSelectedAction] = useState<"edit" | "new" | null>(
-    null
-  );
   const itemsPerPage = 10;
-
-  // Abrir modal para acciones de presupuesto
-  const openBudgetModal = (action: "edit" | "new", client?: string) => {
-    setSelectedAction(action);
-    setSelectedClient(client || null);
-    setShowBudgetModal(true);
-  };
-
-  // Cerrar modal
-  const closeBudgetModal = () => {
-    setShowBudgetModal(false);
-    setSelectedAction(null);
-    setSelectedClient(null);
-  };
-
-  // Función para contar presupuestos por cliente
-  const contarPresupuestosPorCliente = () => {
-    const conteo: Record<string, number> = {};
-    data.ultimosPresupuestos.forEach((presupuesto) => {
-      const cliente = presupuesto.cliente;
-      conteo[cliente] = (conteo[cliente] || 0) + 1;
-    });
-    return conteo;
-  };
-
-  const presupuestosPorCliente = contarPresupuestosPorCliente();
-
-  // Función para manejar click en fila
-  const handleRowClick = (presupuestoId: string, cliente: string) => {
-    setSelectedRow(presupuestoId);
-    // Abrir modal con opciones para este cliente
-    openBudgetModal("edit", cliente);
-  };
 
   if (!uid) return <div className="p-8 text-center">{t("loading_data")}</div>;
   if (loading)
@@ -375,7 +334,8 @@ const Dashboard = () => {
 
   const ESTADOS = [
     { value: "pendiente", label: t("pending_status"), color: "bg-yellow-500" },
-
+    
+    
     { value: "firmado", label: t("signed"), color: "bg-green-500" },
     { value: "finalizado", label: t("completed"), color: "bg-gray-500" },
   ];
@@ -561,13 +521,6 @@ const Dashboard = () => {
                 <Download className="h-4 w-4 mr-2" />
                 {t("export_csv")}
               </Button>
-              <Button
-                onClick={() => openBudgetModal("new")}
-                className="bg-flowmatic-teal hover:bg-flowmatic-teal/90 text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t("add_budget")}
-              </Button>
             </div>
           </CardHeader>
           <CardContent>
@@ -580,21 +533,12 @@ const Dashboard = () => {
                     <TableHead>{t("destination")}</TableHead>
                     <TableHead>{t("value")}</TableHead>
                     <TableHead>{t("status")}</TableHead>
-                    <TableHead>{t("budgets_count")}</TableHead>
                     <TableHead>{t("date")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {currentItems.map((presupuesto) => (
-                    <TableRow
-                      key={presupuesto.id}
-                      className={`cursor-pointer hover:bg-gray-50 ${
-                        selectedRow === presupuesto.id ? "bg-blue-50" : ""
-                      }`}
-                      onClick={() =>
-                        handleRowClick(presupuesto.id, presupuesto.cliente)
-                      }
-                    >
+                    <TableRow key={presupuesto.id}>
                       <TableCell className="font-medium">
                         {presupuesto.nombre}
                       </TableCell>
@@ -633,9 +577,6 @@ const Dashboard = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell className="text-center font-semibold">
-                        {presupuestosPorCliente[presupuesto.cliente] || 1}
                       </TableCell>
                       <TableCell>{presupuesto.fecha}</TableCell>
                     </TableRow>
@@ -740,105 +681,6 @@ const Dashboard = () => {
           </Button>
         </CardContent>
       </Card>
-
-      {/* Modal para acciones de presupuesto */}
-      {showBudgetModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-flowmatic-teal">
-                {selectedAction === "edit"
-                  ? "Acciones de Presupuesto"
-                  : "Nuevo Presupuesto"}
-              </h3>
-              <Button
-                onClick={closeBudgetModal}
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {selectedAction === "edit" && selectedClient && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Acciones para el cliente: <strong>{selectedClient}</strong>
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  <Button
-                    onClick={() => {
-                      console.log(
-                        "Editar presupuesto existente para:",
-                        selectedClient
-                      );
-                      closeBudgetModal();
-                    }}
-                    className="w-full"
-                  >
-                    ✏️ Editar Presupuesto Existente
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      console.log(
-                        "Crear nuevo presupuesto para:",
-                        selectedClient
-                      );
-                      closeBudgetModal();
-                    }}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    ➕ Crear Nuevo Presupuesto
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {selectedAction === "new" && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Crear un nuevo presupuesto
-                </p>
-                <div className="space-y-2">
-                  <Input placeholder="Nombre del cliente" />
-                  <Input placeholder="Destino" />
-                  <Input placeholder="Valor (€)" type="number" />
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendiente">Pendiente</SelectItem>
-                      <SelectItem value="revision">En Revisión</SelectItem>
-                      <SelectItem value="firmado">Firmado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2 pt-4">
-                  <Button
-                    onClick={() => {
-                      console.log("Guardar nuevo presupuesto");
-                      closeBudgetModal();
-                    }}
-                    className="flex-1 bg-flowmatic-teal hover:bg-flowmatic-teal/90"
-                  >
-                    💾 Guardar
-                  </Button>
-                  <Button
-                    onClick={closeBudgetModal}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -578,6 +578,13 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
 
+  // Estados para manejo de imágenes y enlaces en ReactQuill
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const quillRef = useRef<ReactQuill>(null);
+
   // Función para obtener el ID de conversación desde el perfil del usuario
   const obtenerConversacionId = async (uid: string): Promise<string | null> => {
     try {
@@ -595,12 +602,28 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
     }
   };
 
-  // Función para llamar a la API de IA
+  // Función para llamar a la API de IA (DeepSeek)
   const callAI = async (prompt: string, section?: string) => {
     if (!editedData || !prompt.trim()) return;
 
     setAiLoading(true);
     setAiResponse(null);
+
+    // Verificar que la API key esté configurada
+    const apiKey =
+      import.meta.env.VITE_DEEPSEEK_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl =
+      import.meta.env.VITE_DEEPSEEK_API_URL ||
+      "https://api.deepseek.com/v1/chat/completions";
+
+    if (!apiKey) {
+      setAiResponse(
+        "❌ Error: API key no configurada. Verifica tu archivo .env"
+      );
+      setAiLoading(false);
+      return;
+    }
 
     try {
       const systemPrompt = `Eres un editor inteligente especializado en documentos de viaje. Tu función es modificar, enriquecer, traducir, reorganizar o rediseñar el contenido del documento según las instrucciones del usuario.
@@ -629,34 +652,34 @@ ${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
 DATOS ACTUALES DEL DOCUMENTO:
 ${JSON.stringify(editedData, null, 2)}`;
 
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4",
-            messages: [
-              {
-                role: "system",
-                content: systemPrompt,
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
-        }
-      );
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat", // Modelo de DeepSeek
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(`Error de API: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Error de API:", response.status, errorText);
+        throw new Error(`Error de API: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -681,8 +704,22 @@ ${JSON.stringify(editedData, null, 2)}`;
         }
       }
     } catch (error) {
-      console.error("Error llamando a la IA:", error);
-      setAiResponse("Error al procesar la solicitud. Intente nuevamente.");
+      console.error("Error detallado llamando a la IA:", error);
+
+      // Manejo de errores específicos
+      if (error.message.includes("401")) {
+        setAiResponse(
+          "❌ Error 401: API key inválida o expirada. Verifica tu clave de DeepSeek."
+        );
+      } else if (error.message.includes("429")) {
+        setAiResponse("❌ Error 429: Límite de tasa excedido o sin créditos.");
+      } else if (error.message.includes("Failed to fetch")) {
+        setAiResponse(
+          "❌ Error de conexión: No se pudo conectar a la API de DeepSeek."
+        );
+      } else {
+        setAiResponse("❌ Error al procesar la solicitud: " + error.message);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -805,13 +842,19 @@ ${JSON.stringify(editedData, null, 2)}`;
   };
 
   const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["link", "image"],
-      ["clean"],
-    ],
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      }
+    }
   };
 
   const quillFormats = [
@@ -1033,6 +1076,32 @@ ${JSON.stringify(editedData, null, 2)}`;
     });
   };
 
+  // Función para agregar imagen desde el modal
+  const handleAddImage = () => {
+    if (imageUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, 'image', imageUrl);
+        setShowImageModal(false);
+        setImageUrl("");
+      }
+    }
+  };
+
+  // Función para agregar enlace desde el modal
+  const handleAddLink = () => {
+    if (linkUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.formatText(range.index, range.length, 'link', linkUrl);
+        setShowLinkModal(false);
+        setLinkUrl("");
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!editedData) return;
 
@@ -1250,9 +1319,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                 />
               </div>
             </div>
-            <div className="flex items-end">
-             
-            </div>
+            <div className="flex items-end"></div>
           </div>
         </div>
       )}
@@ -1519,7 +1586,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                                   />
                                   <Button
                                     onClick={() =>
-                                      openAiModal(`Día ${index + 1} - Programme`)
+                                      openAiModal(
+                                        `Día ${index + 1} - Programme`
+                                      )
                                     }
                                     variant="ghost"
                                     size="sm"
@@ -1564,7 +1633,10 @@ ${JSON.stringify(editedData, null, 2)}`;
 
           {editing && (
             <div className="flex justify-center mt-4">
-              <Button onClick={addNewItineraryEntry} className="flex items-center gap-2">
+              <Button
+                onClick={addNewItineraryEntry}
+                className="flex items-center gap-2"
+              >
                 <Plus className="h-4 w-4" />
                 Ajouter un jour
               </Button>
@@ -1655,8 +1727,11 @@ ${JSON.stringify(editedData, null, 2)}`;
                   </Button>
                 </div>
                 <ReactQuill
+                  ref={quillRef}
                   value={editedData.programme_detaille}
-                  onChange={(value) => handleChange("programme_detaille", value)}
+                  onChange={(value) =>
+                    handleChange("programme_detaille", value)
+                  }
                   modules={quillModules}
                   formats={quillFormats}
                   theme="snow"
@@ -1719,9 +1794,11 @@ ${JSON.stringify(editedData, null, 2)}`;
         <div className="content-section">
           <div className="section-header">
             <h3 className="section-title">Détails de votre voyage</h3>
-            <p className="section-subtitle">Tout ce qui est inclus dans votre forfait</p>
+            <p className="section-subtitle">
+              Tout ce qui est inclus dans votre forfait
+            </p>
           </div>
-          
+
           <div className="services-grid">
             {/* Service Card - Inclus */}
             <div className="service-card">
@@ -1729,7 +1806,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                 {editing ? (
                   <Input
                     value={editedData.titre_inclus}
-                    onChange={(e) => handleChange("titre_inclus", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("titre_inclus", e.target.value)
+                    }
                     className="font-semibold text-white bg-transparent border-none text-center w-full"
                     placeholder="Titre inclus..."
                   />
@@ -1824,7 +1903,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                 {editing ? (
                   <Input
                     value={editedData.titre_non_inclus}
-                    onChange={(e) => handleChange("titre_non_inclus", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("titre_non_inclus", e.target.value)
+                    }
                     className="font-semibold text-white bg-transparent border-none text-center w-full"
                     placeholder="Titre non inclus..."
                   />
@@ -1868,7 +1949,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                                   />
                                   <Button
                                     onClick={() =>
-                                      openAiModal(`Non Inclus - Item ${index + 1}`)
+                                      openAiModal(
+                                        `Non Inclus - Item ${index + 1}`
+                                      )
                                     }
                                     variant="ghost"
                                     size="sm"
@@ -2017,7 +2100,8 @@ ${JSON.stringify(editedData, null, 2)}`;
               )}
             </h3>
             <p className="section-subtitle">
-              {editedData.intro_hebergements || "Sélection d'établissements de charme"}
+              {editedData.intro_hebergements ||
+                "Sélection d'établissements de charme"}
             </p>
           </div>
 
@@ -2041,11 +2125,7 @@ ${JSON.stringify(editedData, null, 2)}`;
 
               return (
                 <div key={index} className="hotel-card">
-                  <img
-                    src={image}
-                    alt={hotel.nom}
-                    className="hotel-image"
-                  />
+                  <img src={image} alt={hotel.nom} className="hotel-image" />
                   <div className="hotel-info">
                     <h4>{hotel.nom}</h4>
                     <p>{hotel.description}</p>
@@ -2161,10 +2241,7 @@ ${JSON.stringify(editedData, null, 2)}`;
 
                               <div className="mt-4 grid grid-cols-2 gap-2">
                                 {hotel.images.map((image, imgIndex) => (
-                                  <div
-                                    key={imgIndex}
-                                    className="relative"
-                                  >
+                                  <div key={imgIndex} className="relative">
                                     <img
                                       src={image}
                                       alt={hotel.nom}
@@ -2199,9 +2276,8 @@ ${JSON.stringify(editedData, null, 2)}`;
                                       type="text"
                                       placeholder="https://example.com/image.jpg"
                                       value={
-                                        hotelImages[
-                                          `personalized-${index}`
-                                        ] || ""
+                                        hotelImages[`personalized-${index}`] ||
+                                        ""
                                       }
                                       onChange={(e) =>
                                         setHotelImages({
@@ -2254,7 +2330,10 @@ ${JSON.stringify(editedData, null, 2)}`;
 
           {editing && (
             <div className="flex justify-center mt-6">
-              <Button onClick={addNewHotelPersonnalise} className="flex items-center gap-2">
+              <Button
+                onClick={addNewHotelPersonnalise}
+                className="flex items-center gap-2"
+              >
                 <Plus className="h-4 w-4" />
                 Ajouter un hôtel personnalisé
               </Button>
@@ -2290,7 +2369,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                 {editing ? (
                   <Input
                     value={editedData.titre_tarif}
-                    onChange={(e) => handleChange("titre_tarif", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("titre_tarif", e.target.value)
+                    }
                     className="text-center bg-transparent border-none"
                     placeholder="Titre tarif..."
                   />
@@ -2302,7 +2383,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                 {editing ? (
                   <Input
                     value={editedData.prix_par_personne}
-                    onChange={(e) => handleChange("prix_par_personne", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("prix_par_personne", e.target.value)
+                    }
                     className="text-center text-3xl font-light bg-transparent border-none"
                     placeholder="1 399 €"
                   />
@@ -2312,24 +2395,29 @@ ${JSON.stringify(editedData, null, 2)}`;
               </div>
               <div className="price-per">par personne (base 30)</div>
             </div>
-            
+
             <div className="info-item">
               <h4>Durée</h4>
-              <p>{editedData.table_itineraire_bref.length} jours / {editedData.table_itineraire_bref.length - 1} nuits</p>
+              <p>
+                {editedData.table_itineraire_bref.length} jours /{" "}
+                {editedData.table_itineraire_bref.length - 1} nuits
+              </p>
             </div>
-            
+
             <div className="info-item">
               <h4>Groupe</h4>
               <p>Base 30 personnes</p>
             </div>
-            
+
             <div className="info-item">
               <h4>Chambre simple</h4>
               <p>
                 {editing ? (
                   <Input
                     value={editedData.chambre_simple}
-                    onChange={(e) => handleChange("chambre_simple", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("chambre_simple", e.target.value)
+                    }
                     className="text-center bg-transparent border-none p-0"
                     placeholder="sur demande"
                   />
@@ -2339,14 +2427,16 @@ ${JSON.stringify(editedData, null, 2)}`;
               </p>
             </div>
           </div>
-          
+
           {editedData.remarques_tarifs && (
             <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
                 {editing ? (
                   <Input
                     value={editedData.titre_remarques}
-                    onChange={(e) => handleChange("titre_remarques", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("titre_remarques", e.target.value)
+                    }
                     className="bg-transparent border-none"
                     placeholder="Remarques"
                   />
@@ -2357,13 +2447,17 @@ ${JSON.stringify(editedData, null, 2)}`;
               {editing ? (
                 <Textarea
                   value={editedData.remarques_tarifs}
-                  onChange={(e) => handleChange("remarques_tarifs", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("remarques_tarifs", e.target.value)
+                  }
                   className="w-full bg-white"
                   rows={2}
                   placeholder="Ajoutez des remarques sur les tarifs..."
                 />
               ) : (
-                <p className="text-sm text-gray-600">{editedData.remarques_tarifs}</p>
+                <p className="text-sm text-gray-600">
+                  {editedData.remarques_tarifs}
+                </p>
               )}
             </div>
           )}
@@ -2495,6 +2589,60 @@ ${JSON.stringify(editedData, null, 2)}`;
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para agregar imagen */}
+        {showImageModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
+              <Input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://ejemplo.com/imagen.jpg"
+                className="mb-4"
+              />
+              <div className="flex gap-2">
+                <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                  Agregar Imagen
+                </Button>
+                <Button
+                  onClick={() => setShowImageModal(false)}
+                  variant="outline"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para agregar enlace */}
+        {showLinkModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
+              <Input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://ejemplo.com"
+                className="mb-4"
+              />
+              <div className="flex gap-2">
+                <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                  Agregar Enlace
+                </Button>
+                <Button
+                  onClick={() => setShowLinkModal(false)}
+                  variant="outline"
+                >
+                  Cancelar
+                </Button>
               </div>
             </div>
           </div>

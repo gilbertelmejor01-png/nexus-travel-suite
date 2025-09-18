@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -103,6 +103,13 @@ const Previa3 = ({ data, loading, error }: PreviaProps) => {
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
 
+  // Estados para manejo de imágenes y enlaces en ReactQuill
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const quillRef = useRef<ReactQuill>(null);
+
   // Función para obtener el ID de conversación desde el perfil del usuario
   const obtenerConversacionId = async (uid: string): Promise<string | null> => {
     try {
@@ -120,12 +127,28 @@ const Previa3 = ({ data, loading, error }: PreviaProps) => {
     }
   };
 
-  // Función para llamar a la API de IA
+  // Función para llamar a la API de IA (DeepSeek)
   const callAI = async (prompt: string, section?: string) => {
     if (!editedData || !prompt.trim()) return;
 
     setAiLoading(true);
     setAiResponse(null);
+
+    // Verificar que la API key esté configurada
+    const apiKey =
+      import.meta.env.VITE_DEEPSEEK_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl =
+      import.meta.env.VITE_DEEPSEEK_API_URL ||
+      "https://api.deepseek.com/v1/chat/completions";
+
+    if (!apiKey) {
+      setAiResponse(
+        "❌ Error: API key no configurada. Verifica tu archivo .env"
+      );
+      setAiLoading(false);
+      return;
+    }
 
     try {
       const systemPrompt = `Eres un editor inteligente especializado en documentos de viaje. Tu función es modificar, enriquecer, traducir, reorganizar o rediseñar el contenido del documento según las instrucciones del usuario.
@@ -149,36 +172,39 @@ FORMATO DE RESPUESTA:
 - Explicación breve para el usuario
 - Resultado aplicable (texto o JSON según el caso)
 
-${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ''}
+${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
 
 DATOS ACTUALES DEL DOCUMENTO:
 ${JSON.stringify(editedData, null, 2)}`;
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetch(apiUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4",
+          model: "deepseek-chat", // Modelo de DeepSeek
           messages: [
             {
               role: "system",
-              content: systemPrompt
+              content: systemPrompt,
             },
             {
               role: "user",
-              content: prompt
-            }
+              content: prompt,
+            },
           ],
           temperature: 0.7,
-          max_tokens: 2000
-        })
+          max_tokens: 2000,
+          stream: false,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error(`Error de API: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Error de API:", response.status, errorText);
+        throw new Error(`Error de API: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -186,15 +212,15 @@ ${JSON.stringify(editedData, null, 2)}`;
 
       if (aiResponse) {
         setAiResponse(aiResponse);
-        
+
         // Intentar parsear si es JSON
         try {
           const parsedResponse = JSON.parse(aiResponse);
-          if (parsedResponse && typeof parsedResponse === 'object') {
+          if (parsedResponse && typeof parsedResponse === "object") {
             // Aplicar cambios automáticamente si es JSON válido
             setEditedData({
               ...editedData,
-              ...parsedResponse
+              ...parsedResponse,
             });
           }
         } catch (e) {
@@ -203,8 +229,22 @@ ${JSON.stringify(editedData, null, 2)}`;
         }
       }
     } catch (error) {
-      console.error("Error llamando a la IA:", error);
-      setAiResponse("Error al procesar la solicitud. Intente nuevamente.");
+      console.error("Error detallado llamando a la IA:", error);
+
+      // Manejo de errores específicos
+      if (error.message.includes("401")) {
+        setAiResponse(
+          "❌ Error 401: API key inválida o expirada. Verifica tu clave de DeepSeek."
+        );
+      } else if (error.message.includes("429")) {
+        setAiResponse("❌ Error 429: Límite de tasa excedido o sin créditos.");
+      } else if (error.message.includes("Failed to fetch")) {
+        setAiResponse(
+          "❌ Error de conexión: No se pudo conectar a la API de DeepSeek."
+        );
+      } else {
+        setAiResponse("❌ Error al procesar la solicitud: " + error.message);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -223,13 +263,18 @@ ${JSON.stringify(editedData, null, 2)}`;
     if (data && !editedData) {
       setEditedData({
         titreVoyage: "Votre voyage avec Néogusto",
-        logoUrl: "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
-        imageProgrammeUrl: "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
+        logoUrl:
+          "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
+        imageProgrammeUrl:
+          "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
         bonVoyageText: "BON VOYAGE !",
         vos_envies: "",
-        note_hebergement: "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
-        note_programme: "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
-        intro_hebergements: "Hébergements sélectionnés pour leur confort, charme et localisation.",
+        note_hebergement:
+          "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
+        note_programme:
+          "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
+        intro_hebergements:
+          "Hébergements sélectionnés pour leur confort, charme et localisation.",
         // Valores por defecto para los títulos
         titre_vos_envies: "VOS ENVIES",
         titre_itineraire_bref: "VOTRE ITINÉRAIRE EN BREF",
@@ -321,13 +366,19 @@ ${JSON.stringify(editedData, null, 2)}`;
   };
 
   const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["link", "image"],
-      ["clean"],
-    ],
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      },
+    },
   };
 
   const quillFormats = [
@@ -458,14 +509,15 @@ ${JSON.stringify(editedData, null, 2)}`;
     // Actualizar el estado para incluir la nueva imagen
     const hotelName = hotels[hotelIndex].nom;
     const updatedHotels = [...(editedData.hebergements_personnalises || [])];
-    
+
     // Buscar el hotel por nombre y añadir la imagen
     const hotelIndexInPersonalized = updatedHotels.findIndex(
-      hotel => hotel.nom === hotelName
+      (hotel) => hotel.nom === hotelName
     );
-    
+
     if (hotelIndexInPersonalized !== -1) {
-      const currentImages = updatedHotels[hotelIndexInPersonalized].images || [];
+      const currentImages =
+        updatedHotels[hotelIndexInPersonalized].images || [];
       updatedHotels[hotelIndexInPersonalized] = {
         ...updatedHotels[hotelIndexInPersonalized],
         images: [...currentImages, newImageUrl.trim()],
@@ -568,6 +620,32 @@ ${JSON.stringify(editedData, null, 2)}`;
       ...editedData,
       hebergements_personnalises: updatedHotels,
     });
+  };
+
+  // Función para agregar imagen desde el modal
+  const handleAddImage = () => {
+    if (imageUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, "image", imageUrl);
+        setShowImageModal(false);
+        setImageUrl("");
+      }
+    }
+  };
+
+  // Función para agregar enlace desde el modal
+  const handleAddLink = () => {
+    if (linkUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.formatText(range.index, range.length, "link", linkUrl);
+        setShowLinkModal(false);
+        setLinkUrl("");
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -732,13 +810,7 @@ ${JSON.stringify(editedData, null, 2)}`;
       {editing && (
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800">🎨 Rediseño Inteligente</h3>
-              <p className="text-sm text-gray-600">Usa IA para rediseñar toda la plantilla</p>
-            </div>
-            <div className="flex items-end">
-             
-            </div>
+            <div className="flex items-end"></div>
           </div>
         </div>
       )}
@@ -777,19 +849,14 @@ ${JSON.stringify(editedData, null, 2)}`;
               >
                 {aiLoading ? "🤖 Procesando..." : "✨ Aplicar con IA"}
               </Button>
-              <Button
-                onClick={() => setShowAiModal(false)}
-                variant="outline"
-              >
+              <Button onClick={() => setShowAiModal(false)} variant="outline">
                 ❌ Cerrar
               </Button>
             </div>
             {aiResponse && (
               <div className="mt-4 p-4 bg-gray-50 rounded">
                 <h4 className="font-semibold mb-2">Respuesta de la IA:</h4>
-                <div className="whitespace-pre-wrap text-sm">
-                  {aiResponse}
-                </div>
+                <div className="whitespace-pre-wrap text-sm">{aiResponse}</div>
               </div>
             )}
           </div>
@@ -800,18 +867,65 @@ ${JSON.stringify(editedData, null, 2)}`;
       <section className="cover">
         <div className="cover-top">
           <div className="brand">
-            <img src={editedData.logoUrl} alt="Logo" />
-            <div>
-              <h3>FLOWTRIP</h3>
-              <p>Voyages d'Exception</p>
-            </div>
+            {editing ? (
+              <div className="space-y-2">
+                <Label className="block">URL del Logo:</Label>
+                <Input
+                  value={editedData.logoUrl}
+                  onChange={(e) => handleChange("logoUrl", e.target.value)}
+                  className="w-full"
+                  placeholder="https://ejemplo.com/logo.png"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value="FLOWTRIP" readOnly className="font-semibold" />
+                  <Input
+                    value="Voyages d'Exception"
+                    readOnly
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <img src={editedData.logoUrl} alt="Logo" />
+                <div>
+                  <h3>FLOWTRIP</h3>
+                  <p>Voyages d'Exception</p>
+                </div>
+              </>
+            )}
           </div>
           <div className="ref">
-            <div>Proposition de Voyage</div>
-            <div>Référence: FLO-2025-001</div>
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  value="Proposition de Voyage"
+                  readOnly
+                  className="font-semibold"
+                />
+                <div className="flex items-center gap-2">
+                  <span>Référence:</span>
+                  <Input value="FLO-2025-001" readOnly className="w-32" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>Proposition de Voyage</div>
+                <div>Référence: FLO-2025-001</div>
+              </>
+            )}
           </div>
         </div>
+        {editing ? (
+          <Input
+            value={editedData.titreVoyage}
+            onChange={(e) => handleChange("titreVoyage", e.target.value)}
+            className="text-4xl font-light text-center w-full bg-transparent border-none"
+            placeholder="Votre voyage avec Flowmatic"
+          />
+        ) : (
           <h1>{editedData.titreVoyage}</h1>
+        )}
       </section>
 
       <div className="layout">
@@ -819,14 +933,42 @@ ${JSON.stringify(editedData, null, 2)}`;
         <aside className="sidebar">
           <div className="side-block">
             <div className="side-title">Destination</div>
-            <div className="pill">{editedData.pays_destination}</div>
-        </div>
+            {editing ? (
+              <Input
+                value={editedData.pays_destination}
+                onChange={(e) =>
+                  handleChange("pays_destination", e.target.value)
+                }
+                className="w-full"
+              />
+            ) : (
+              <div className="pill">{editedData.pays_destination}</div>
+            )}
+          </div>
           <div className="side-block">
             <div className="side-title">Tarif indicatif</div>
-            <div className="price-card">
-              <div className="price-main">{editedData.prix_par_personne}</div>
-              <div className="price-sub">par personne</div>
-      </div>
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  value={editedData.prix_par_personne}
+                  onChange={(e) =>
+                    handleChange("prix_par_personne", e.target.value)
+                  }
+                  className="w-full text-2xl font-bold text-center"
+                  placeholder="1399 EUR./pax/séjour"
+                />
+                <Input
+                  value="par personne"
+                  readOnly
+                  className="w-full text-center text-sm"
+                />
+              </div>
+            ) : (
+              <div className="price-card">
+                <div className="price-main">{editedData.prix_par_personne}</div>
+                <div className="price-sub">par personne</div>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -840,7 +982,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                   <div className="flex items-center gap-2">
                     <Input
                       value={editedData.titre_vos_envies}
-                      onChange={(e) => handleChange("titre_vos_envies", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("titre_vos_envies", e.target.value)
+                      }
                       className="flex-1"
                     />
                     <Button
@@ -895,7 +1039,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                   <div className="flex items-center gap-2">
                     <Input
                       value={editedData.titre_itineraire_bref}
-                      onChange={(e) => handleChange("titre_itineraire_bref", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("titre_itineraire_bref", e.target.value)
+                      }
                       className="flex-1"
                     />
                     <Button
@@ -921,18 +1067,140 @@ ${JSON.stringify(editedData, null, 2)}`;
                 {editedData.table_itineraire_bref.length} jours
               </span>
             </div>
-            <div className="timeline">
-              {editedData.table_itineraire_bref.map((row, index) => (
-                <div className="row" key={index}>
-                  <div className="t-jour">{row.jour + " · " + row.date}</div>
-                  <div className="t-program">
-                    <p>{row.programme}</p>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="itinerary" type="itinerary">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="timeline"
+                  >
+                    {editedData.table_itineraire_bref.map((row, index) => (
+                      <Draggable
+                        key={index}
+                        draggableId={index.toString()}
+                        index={index}
+                      >
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="row"
+                          >
+                            <div
+                              {...provided.dragHandleProps}
+                              className="drag-handle"
+                            >
+                              {editing && (
+                                <GripVertical className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                            <div className="t-jour">
+                              {editing ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={row.jour}
+                                    onChange={(e) =>
+                                      handleItineraryChange(
+                                        index,
+                                        "jour",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="flex-1"
+                                    placeholder="Jour 1"
+                                  />
+                                  <span>·</span>
+                                  <Input
+                                    value={row.date}
+                                    onChange={(e) =>
+                                      handleItineraryChange(
+                                        index,
+                                        "date",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="flex-1"
+                                    placeholder="Vendredi 14 avril 2023"
+                                  />
+                                </div>
+                              ) : (
+                                row.jour + " · " + row.date
+                              )}
+                            </div>
+                            <div className="t-program">
+                              {editing ? (
+                                <Textarea
+                                  value={row.programme}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "programme",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full"
+                                  rows={3}
+                                  placeholder="Arrivée à Madrid, visite guidée du musée du Prado..."
+                                />
+                              ) : (
+                                <p>{row.programme}</p>
+                              )}
+                            </div>
+                            <div className="t-nuit">
+                              {editing ? (
+                                <Input
+                                  value={row.nuit}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "nuit",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full"
+                                  placeholder="Madrid"
+                                />
+                              ) : (
+                                row.nuit
+                              )}
+                            </div>
+                            {editing && (
+                              <div className="flex items-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeItineraryEntry(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {editing && (
+                      <div className="row">
+                        <div className="t-jour">
+                          <Button
+                            onClick={addNewItineraryEntry}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Ajouter un jour
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="t-nuit">{row.nuit}</div>
-                </div>
-              ))}
-          </div>
-        </section>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </section>
 
           {/* Programme détaillé */}
           <section className="section">
@@ -942,7 +1210,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                   <div className="flex items-center gap-2">
                     <Input
                       value={editedData.titre_programme_detaille}
-                      onChange={(e) => handleChange("titre_programme_detaille", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("titre_programme_detaille", e.target.value)
+                      }
                       className="flex-1"
                     />
                     <Button
@@ -953,7 +1223,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                       ✨
                     </Button>
                     <Button
-                      onClick={() => handleChange("titre_programme_detaille", "")}
+                      onClick={() =>
+                        handleChange("titre_programme_detaille", "")
+                      }
                       size="sm"
                       variant="destructive"
                     >
@@ -978,8 +1250,11 @@ ${JSON.stringify(editedData, null, 2)}`;
                   </Button>
                 </div>
                 <ReactQuill
+                  ref={quillRef}
                   value={editedData.programme_detaille}
-                  onChange={(value) => handleChange("programme_detaille", value)}
+                  onChange={(value) =>
+                    handleChange("programme_detaille", value)
+                  }
                   modules={quillModules}
                   formats={quillFormats}
                   theme="snow"
@@ -993,12 +1268,20 @@ ${JSON.stringify(editedData, null, 2)}`;
                 }}
               />
             )}
-        </section>
+          </section>
 
           {/* Détails / Services */}
-        <section className="section">
+          <section className="section">
             <div className="sec-head">
-              <div className="sec-title">Détails de votre voyage</div>
+              {editing ? (
+                <Input
+                  value="Détails de votre voyage"
+                  readOnly
+                  className="sec-title text-2xl font-bold"
+                />
+              ) : (
+                <div className="sec-title">Détails de votre voyage</div>
+              )}
             </div>
             <div className="grid-2">
               <div className="card">
@@ -1007,7 +1290,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                     <div className="flex items-center gap-2">
                       <Input
                         value={editedData.titre_inclus}
-                        onChange={(e) => handleChange("titre_inclus", e.target.value)}
+                        onChange={(e) =>
+                          handleChange("titre_inclus", e.target.value)
+                        }
                         className="flex-1"
                       />
                       <Button
@@ -1037,7 +1322,13 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <div className="flex items-center gap-2">
                             <Input
                               value={item}
-                              onChange={(e) => handleListItemChange("inclus", index, e.target.value)}
+                              onChange={(e) =>
+                                handleListItemChange(
+                                  "inclus",
+                                  index,
+                                  e.target.value
+                                )
+                              }
                               className="flex-1"
                             />
                             <Button
@@ -1080,7 +1371,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                         </div>
                       </li>
                     )}
-                    </ul>
+                  </ul>
                 </div>
               </div>
               <div className="card">
@@ -1089,7 +1380,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                     <div className="flex items-center gap-2">
                       <Input
                         value={editedData.titre_non_inclus}
-                        onChange={(e) => handleChange("titre_non_inclus", e.target.value)}
+                        onChange={(e) =>
+                          handleChange("titre_non_inclus", e.target.value)
+                        }
                         className="flex-1"
                       />
                       <Button
@@ -1119,7 +1412,13 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <div className="flex items-center gap-2">
                             <Input
                               value={item}
-                              onChange={(e) => handleListItemChange("non_inclus", index, e.target.value)}
+                              onChange={(e) =>
+                                handleListItemChange(
+                                  "non_inclus",
+                                  index,
+                                  e.target.value
+                                )
+                              }
                               className="flex-1"
                             />
                             <Button
@@ -1130,7 +1429,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                               ✨
                             </Button>
                             <Button
-                              onClick={() => removeListItem("non_inclus", index)}
+                              onClick={() =>
+                                removeListItem("non_inclus", index)
+                              }
                               size="sm"
                               variant="destructive"
                             >
@@ -1162,11 +1463,11 @@ ${JSON.stringify(editedData, null, 2)}`;
                         </div>
                       </li>
                     )}
-                    </ul>
-          </div>
+                  </ul>
+                </div>
               </div>
-          </div>
-        </section>
+            </div>
+          </section>
 
           {/* Hébergements personnalisés */}
           <section className="section">
@@ -1176,7 +1477,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                   <div className="flex items-center gap-2">
                     <Input
                       value={editedData.titre_hebergements}
-                      onChange={(e) => handleChange("titre_hebergements", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("titre_hebergements", e.target.value)
+                      }
                       className="flex-1"
                     />
                     <Button
@@ -1203,12 +1506,14 @@ ${JSON.stringify(editedData, null, 2)}`;
                 )}
               </div>
             </div>
-            
+
             <div className="hotels-intro">
               {editing ? (
                 <Textarea
                   value={editedData.intro_hebergements || ""}
-                  onChange={(e) => handleChange("intro_hebergements", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("intro_hebergements", e.target.value)
+                  }
                   className="w-full"
                   rows={2}
                 />
@@ -1285,8 +1590,12 @@ ${JSON.stringify(editedData, null, 2)}`;
                                     </>
                                   ) : (
                                     <>
-                                      <div className="hotel-name">{hotel.nom}</div>
-                                      <div className="hotel-description">{hotel.description}</div>
+                                      <div className="hotel-name">
+                                        {hotel.nom}
+                                      </div>
+                                      <div className="hotel-description">
+                                        {hotel.description}
+                                      </div>
                                     </>
                                   )}
 
@@ -1365,7 +1674,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => removeHotelPersonnalise(index)}
+                                    onClick={() =>
+                                      removeHotelPersonnalise(index)
+                                    }
                                     className="ml-2"
                                   >
                                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -1387,7 +1698,9 @@ ${JSON.stringify(editedData, null, 2)}`;
               {editing ? (
                 <Textarea
                   value={editedData.note_hebergement || ""}
-                  onChange={(e) => handleChange("note_hebergement", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("note_hebergement", e.target.value)
+                  }
                   className="w-full"
                   rows={2}
                 />
@@ -1403,9 +1716,82 @@ ${JSON.stringify(editedData, null, 2)}`;
 
       {/* CTA */}
       <section className="cta">
-        <h2>Bon voyage</h2>
-        <p>Votre aventure espagnole vous attend</p>
-        </section>
+        {editing ? (
+          <div className="space-y-4 text-center">
+            <Input
+              value="Bon voyage"
+              readOnly
+              className="text-3xl font-light text-center bg-transparent border-none"
+            />
+            <Textarea
+              value="Votre aventure espagnole vous attend"
+              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+              className="text-lg text-center bg-transparent border-none"
+              rows={2}
+              placeholder="Votre aventure espagnole vous attend"
+            />
+          </div>
+        ) : (
+          <>
+            <h2>Bon voyage</h2>
+            <p>
+              {editedData.bonVoyageText ||
+                "Votre aventure espagnole vous attend"}
+            </p>
+          </>
+        )}
+      </section>
+
+      {/* Modal para agregar imagen */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
+            <Input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.jpg"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                Agregar Imagen
+              </Button>
+              <Button
+                onClick={() => setShowImageModal(false)}
+                variant="outline"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para agregar enlace */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
+            <Input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://ejemplo.com"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                Agregar Enlace
+              </Button>
+              <Button onClick={() => setShowLinkModal(false)} variant="outline">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

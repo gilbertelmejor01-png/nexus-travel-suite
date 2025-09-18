@@ -6,7 +6,7 @@ import { auth } from "@/lib/firebase";
 import { Loader2 } from "lucide-react";
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {

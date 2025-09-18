@@ -9,10 +9,12 @@ import {
   Plane,
   History,
   User,
+  CreditCard,
   Eye,
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Handshake,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,10 +40,11 @@ const navigationItems = [
   { titleKey: "process_with_ai", url: "/ai-interaction", icon: Bot },
   //{ titleKey: "analytical_dashboard", url: "/analytics", icon: BarChart3 },
   //{ titleKey: "advanced_comparisons", url: "/comparisons", icon: TrendingUp },
-  { titleKey: "client", url: "/cliente", icon: User },
+  { titleKey: "client", url: "/cliente", icon: Handshake },
   //{ titleKey: "itinerary_creation", url: "/manual-creation", icon: Plane },
   //{ titleKey: "unified_history", url: "/history", icon: History },
   { titleKey: "profile", url: "/perfil", icon: User },
+  { titleKey: "pago", url: "/payment", icon: CreditCard },
 ];
 
 export function AppSidebar() {

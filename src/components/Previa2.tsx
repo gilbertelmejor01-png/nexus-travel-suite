@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -74,6 +74,12 @@ export interface VoyageData {
   titre_nuit: string;
   titre_hotel: string;
   hebergements_personnalises: HotelInfo[];
+  personalisationText?: string;
+  detailVoyageTitle?: string;
+  prixDetailText?: string;
+  hotelsIntroText?: string;
+  disponibilityText?: string;
+  bonVoyageTitle?: string;
 }
 
 interface PreviaProps {
@@ -101,6 +107,13 @@ const Previa2 = ({ data, loading, error }: PreviaProps) => {
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
 
+  // Estados para manejo de imágenes y enlaces en ReactQuill
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const quillRef = useRef<ReactQuill>(null);
+
   // Función para obtener el ID de conversación desde el perfil del usuario
   const obtenerConversacionId = async (uid: string): Promise<string | null> => {
     try {
@@ -118,12 +131,28 @@ const Previa2 = ({ data, loading, error }: PreviaProps) => {
     }
   };
 
-  // Función para llamar a la API de IA
+  // Función para llamar a la API de IA (DeepSeek)
   const callAI = async (prompt: string, section?: string) => {
     if (!editedData || !prompt.trim()) return;
 
     setAiLoading(true);
     setAiResponse(null);
+
+    // Verificar que la API key esté configurada
+    const apiKey =
+      import.meta.env.VITE_DEEPSEEK_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl =
+      import.meta.env.VITE_DEEPSEEK_API_URL ||
+      "https://api.deepseek.com/v1/chat/completions";
+
+    if (!apiKey) {
+      setAiResponse(
+        "❌ Error: API key no configurada. Verifica tu archivo .env"
+      );
+      setAiLoading(false);
+      return;
+    }
 
     try {
       const systemPrompt = `Eres un editor inteligente especializado en documentos de viaje. Tu función es modificar, enriquecer, traducir, reorganizar o rediseñar el contenido del documento según las instrucciones del usuario.
@@ -152,34 +181,34 @@ ${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
 DATOS ACTUALES DEL DOCUMENTO:
 ${JSON.stringify(editedData, null, 2)}`;
 
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4",
-            messages: [
-              {
-                role: "system",
-                content: systemPrompt,
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            temperature: 0.7,
-            max_tokens: 2000,
-          }),
-        }
-      );
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat", // Modelo de DeepSeek
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(`Error de API: ${response.status}`);
+        const errorText = await response.text();
+        console.error("Error de API:", response.status, errorText);
+        throw new Error(`Error de API: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -204,8 +233,22 @@ ${JSON.stringify(editedData, null, 2)}`;
         }
       }
     } catch (error) {
-      console.error("Error llamando a la IA:", error);
-      setAiResponse("Error al procesar la solicitud. Intente nuevamente.");
+      console.error("Error detallado llamando a la IA:", error);
+
+      // Manejo de errores específicos
+      if (error.message.includes("401")) {
+        setAiResponse(
+          "❌ Error 401: API key inválida o expirada. Verifica tu clave de DeepSeek."
+        );
+      } else if (error.message.includes("429")) {
+        setAiResponse("❌ Error 429: Límite de tasa excedido o sin créditos.");
+      } else if (error.message.includes("Failed to fetch")) {
+        setAiResponse(
+          "❌ Error de conexión: No se pudo conectar a la API de DeepSeek."
+        );
+      } else {
+        setAiResponse("❌ Error al procesar la solicitud: " + error.message);
+      }
     } finally {
       setAiLoading(false);
     }
@@ -327,13 +370,19 @@ ${JSON.stringify(editedData, null, 2)}`;
   };
 
   const quillModules = {
-    toolbar: [
-      [{ header: [1, 2, 3, false] }],
-      ["bold", "italic", "underline", "strike"],
-      [{ list: "ordered" }, { list: "bullet" }],
-      ["link", "image"],
-      ["clean"],
-    ],
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      },
+    },
   };
 
   const quillFormats = [
@@ -464,14 +513,15 @@ ${JSON.stringify(editedData, null, 2)}`;
     // Actualizar el estado para incluir la nueva imagen
     const hotelName = hotels[hotelIndex].nom;
     const updatedHotels = [...(editedData.hebergements_personnalises || [])];
-    
+
     // Buscar el hotel por nombre y añadir la imagen
     const hotelIndexInPersonalized = updatedHotels.findIndex(
-      hotel => hotel.nom === hotelName
+      (hotel) => hotel.nom === hotelName
     );
-    
+
     if (hotelIndexInPersonalized !== -1) {
-      const currentImages = updatedHotels[hotelIndexInPersonalized].images || [];
+      const currentImages =
+        updatedHotels[hotelIndexInPersonalized].images || [];
       updatedHotels[hotelIndexInPersonalized] = {
         ...updatedHotels[hotelIndexInPersonalized],
         images: [...currentImages, newImageUrl.trim()],
@@ -574,6 +624,32 @@ ${JSON.stringify(editedData, null, 2)}`;
       ...editedData,
       hebergements_personnalises: updatedHotels,
     });
+  };
+
+  // Función para agregar imagen desde el modal
+  const handleAddImage = () => {
+    if (imageUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, "image", imageUrl);
+        setShowImageModal(false);
+        setImageUrl("");
+      }
+    }
+  };
+
+  // Función para agregar enlace desde el modal
+  const handleAddLink = () => {
+    if (linkUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.formatText(range.index, range.length, "link", linkUrl);
+        setShowLinkModal(false);
+        setLinkUrl("");
+      }
+    }
   };
 
   const handleSave = async () => {
@@ -752,14 +828,11 @@ ${JSON.stringify(editedData, null, 2)}`;
         <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
           <div className="flex items-center justify-between">
             <div>
-             
               <p className="text-sm text-gray-600">
                 Usa IA para rediseñar toda la plantilla
               </p>
             </div>
-            <div className="flex items-end">
-              
-            </div>
+            <div className="flex items-end"></div>
           </div>
         </div>
       )}
@@ -816,17 +889,74 @@ ${JSON.stringify(editedData, null, 2)}`;
       <div className="hero-header">
         <div className="hero-top">
           <div className="brand-inline">
-            <img src={editedData.logoUrl} alt="Logo Flowtrip" />
-            <span className="brand-name">FLOWTRIP</span>
+            {editing ? (
+              <div className="flex items-center gap-4">
+                <div className="space-y-2">
+                  <Label className="block text-xs">URL del Logo:</Label>
+                  <Input
+                    value={editedData.logoUrl}
+                    onChange={(e) => handleChange("logoUrl", e.target.value)}
+                    className="w-48 text-sm"
+                    placeholder="https://ejemplo.com/logo.png"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="block text-xs">Nombre Marca:</Label>
+                  <Input
+                    value="FLOWTRIP"
+                    readOnly
+                    className="font-semibold w-32"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <img src={editedData.logoUrl} alt="Logo Flowtrip" />
+                <span className="brand-name">FLOWTRIP</span>
+              </>
+            )}
           </div>
-          <div className="client-name">Mme Doulcet</div>
+          <div className="client-name">
+            {editing ? (
+              <Input value="Mme Doulcet" readOnly className="w-32 text-sm" />
+            ) : (
+              "Mme Doulcet"
+            )}
+          </div>
         </div>
         <div className="hero-content">
-          <h1>{editedData.titreVoyage}</h1>
-          <p>
-            Programme sur mesure — {editedData.table_itineraire_bref.length}{" "}
-            jours
-          </p>
+          {editing ? (
+            <div className="space-y-2">
+              <Input
+                value={editedData.titreVoyage}
+                onChange={(e) => handleChange("titreVoyage", e.target.value)}
+                className="text-3xl font-bold text-center w-full bg-transparent border-none"
+                placeholder="Votre voyage avec Flowmatic"
+              />
+              <div className="flex items-center justify-center gap-2">
+                <Input
+                  value={`Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
+                  readOnly
+                  className="text-lg text-center bg-transparent border-none w-auto"
+                />
+                <Button
+                  onClick={() => openAiModal("titreVoyage")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1>{editedData.titreVoyage}</h1>
+              <p>
+                Programme sur mesure — {editedData.table_itineraire_bref.length}{" "}
+                jours
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -922,7 +1052,7 @@ ${JSON.stringify(editedData, null, 2)}`;
               editedData.titre_itineraire_bref
             )}
           </h2>
-          
+
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="itinerary" type="itinerary">
               {(provided) => (
@@ -1199,8 +1329,32 @@ ${JSON.stringify(editedData, null, 2)}`;
           </DragDropContext>
 
           <div className="note-simple">
-            <strong>Personnalisation :</strong> Ce programme peut être ajusté en
-            fonction de vos souhaits.
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <strong>Personnalisation :</strong>
+                <Input
+                  value="Ce programme peut être ajusté en fonction de vos souhaits."
+                  onChange={(e) =>
+                    handleChange("personalisationText", e.target.value)
+                  }
+                  className="flex-1"
+                  placeholder="Ce programme peut être ajusté en fonction de vos souhaits."
+                />
+                <Button
+                  onClick={() => openAiModal("Personnalisation")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              <>
+                <strong>Personnalisation :</strong>{" "}
+                {editedData.personalisationText ||
+                  "Ce programme peut être ajusté en fonction de vos souhaits."}
+              </>
+            )}
           </div>
         </section>
 
@@ -1248,6 +1402,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                 </Button>
               </div>
               <ReactQuill
+                ref={quillRef}
                 value={editedData.programme_detaille}
                 onChange={(value) => handleChange("programme_detaille", value)}
                 modules={quillModules}
@@ -1267,7 +1422,29 @@ ${JSON.stringify(editedData, null, 2)}`;
 
         {/* Services */}
         <section className="section">
-          <h2 className="section-title">Détail de Votre Voyage</h2>
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value="Détail de Votre Voyage"
+                  onChange={(e) =>
+                    handleChange("detailVoyageTitle", e.target.value)
+                  }
+                  className="text-2xl font-bold"
+                  placeholder="Détail de Votre Voyage"
+                />
+                <Button
+                  onClick={() => openAiModal("Détail de Votre Voyage")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              editedData.detailVoyageTitle || "Détail de Votre Voyage"
+            )}
+          </h2>
           <div className="services-table">
             <table>
               <thead>
@@ -1486,7 +1663,18 @@ ${JSON.stringify(editedData, null, 2)}`;
               editedData.prix_par_personne
             )}
           </div>
-          <div className="prix-detail">par personne (base 30)</div>
+          <div className="prix-detail">
+            {editing ? (
+              <Input
+                value="par personne (base 30)"
+                onChange={(e) => handleChange("prixDetailText", e.target.value)}
+                className="text-center bg-transparent border-none"
+                placeholder="par personne (base 30)"
+              />
+            ) : (
+              editedData.prixDetailText || "par personne (base 30)"
+            )}
+          </div>
         </section>
 
         {/* Hébergements */}
@@ -1521,10 +1709,22 @@ ${JSON.stringify(editedData, null, 2)}`;
             )}
           </h2>
           <div className="hotels-intro">
-            <p>
-              Hébergements sélectionnés pour leur charme, confort et situation
-              privilégiée.
-            </p>
+            {editing ? (
+              <Textarea
+                value="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+                onChange={(e) =>
+                  handleChange("hotelsIntroText", e.target.value)
+                }
+                className="w-full text-center"
+                rows={2}
+                placeholder="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+              />
+            ) : (
+              <p>
+                {editedData.hotelsIntroText ||
+                  "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."}
+              </p>
+            )}
           </div>
           <div className="hotels-list">
             {editedData.hebergements_personnalises.map((hotel, index) => (
@@ -1542,17 +1742,100 @@ ${JSON.stringify(editedData, null, 2)}`;
             ))}
           </div>
           <div className="note-simple">
-            Les hébergements sont sujets à disponibilité. Un établissement de
-            catégorie équivalente sera proposé si nécessaire.
+            {editing ? (
+              <Textarea
+                value="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+                onChange={(e) =>
+                  handleChange("disponibilityText", e.target.value)
+                }
+                className="w-full"
+                rows={2}
+                placeholder="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+              />
+            ) : (
+              editedData.disponibilityText ||
+              "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+            )}
           </div>
         </section>
       </div>
 
       {/* Footer */}
       <div className="footer-section">
-        <h2>Bon Voyage !</h2>
-        <p>Votre aventure vous attend</p>
+        {editing ? (
+          <div className="space-y-4 text-center">
+            <Input
+              value="Bon Voyage !"
+              onChange={(e) => handleChange("bonVoyageTitle", e.target.value)}
+              className="text-3xl font-bold text-center"
+              placeholder="Bon Voyage !"
+            />
+            <Textarea
+              value="Votre aventure vous attend"
+              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+              className="text-lg text-center bg-transparent border-none"
+              rows={2}
+              placeholder="Votre aventure vous attend"
+            />
+          </div>
+        ) : (
+          <>
+            <h2>Bon Voyage !</h2>
+            <p>{editedData.bonVoyageText || "Votre aventure vous attend"}</p>
+          </>
+        )}
       </div>
+
+      {/* Modal para agregar imagen */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
+            <Input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.jpg"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                Agregar Imagen
+              </Button>
+              <Button
+                onClick={() => setShowImageModal(false)}
+                variant="outline"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para agregar enlace */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
+            <Input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://ejemplo.com"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                Agregar Enlace
+              </Button>
+              <Button onClick={() => setShowLinkModal(false)} variant="outline">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

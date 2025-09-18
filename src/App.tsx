@@ -21,6 +21,7 @@ import Perfil from "./pages/Perfil";
 import Client from "./pages/Client";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
+import Payment from "./pages/Payment";
 
 const App = () => {
   const { currentUser, loading } = useAuth();
@@ -87,6 +88,7 @@ const App = () => {
           <Route path="/preview" element={<Preview />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/cliente" element={<Client />} />
+          <Route path="/payment" element={<Payment />} />
         </Route>
 
         {/* Admin routes - example with role-based protection */}
