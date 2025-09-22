@@ -44,7 +44,7 @@ const navigationItems = [
   //{ titleKey: "itinerary_creation", url: "/manual-creation", icon: Plane },
   //{ titleKey: "unified_history", url: "/history", icon: History },
   { titleKey: "profile", url: "/perfil", icon: User },
-  { titleKey: "pago", url: "/payment", icon: CreditCard },
+  { titleKey: "pago", url: "/Appa", icon: CreditCard },
 ];
 
 export function AppSidebar() {

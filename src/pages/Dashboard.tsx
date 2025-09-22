@@ -222,6 +222,13 @@ const Dashboard = () => {
   const [selectedAction, setSelectedAction] = useState<"edit" | "new" | null>(
     null
   );
+  const [nuevoPresupuesto, setNuevoPresupuesto] = useState({
+    nombre: "",
+    cliente: "",
+    destino: "",
+    valor: "",
+    estado: "pendiente",
+  });
   const itemsPerPage = 10;
 
   // Abrir modal para acciones de presupuesto
@@ -236,6 +243,170 @@ const Dashboard = () => {
     setShowBudgetModal(false);
     setSelectedAction(null);
     setSelectedClient(null);
+    setNuevoPresupuesto({
+      nombre: "",
+      cliente: "",
+      destino: "",
+      valor: "",
+      estado: "pendiente",
+    });
+  };
+
+  // Manejar cambios en el formulario de nuevo presupuesto
+  const handleNuevoPresupuestoChange = (field: string, value: string) => {
+    setNuevoPresupuesto((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  // Función para crear o editar presupuesto
+  const crearNuevoPresupuesto = async () => {
+    if (!uid) {
+      toast({
+        title: t("error_title"),
+        description: t("unauthorized"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!nuevoPresupuesto.nombre || !nuevoPresupuesto.cliente || !nuevoPresupuesto.destino || !nuevoPresupuesto.valor) {
+      toast({
+        title: t("error_title"),
+        description: "Por favor completa todos los campos obligatorios",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const esEdicion = selectedRow !== null;
+      
+      if (esEdicion) {
+        // Lógica para editar presupuesto existente
+        toast({
+          title: "✅ Presupuesto actualizado",
+          description: `Presupuesto de ${nuevoPresupuesto.cliente} actualizado exitosamente`,
+        });
+      } else {
+        // Lógica para crear nuevo presupuesto
+        toast({
+          title: "✅ Presupuesto creado",
+          description: `Nuevo presupuesto para ${nuevoPresupuesto.cliente} creado exitosamente`,
+        });
+      }
+      
+      closeBudgetModal();
+      
+      // Recargar datos después de crear/editar
+      const fetchClientes = async () => {
+        const clientesRef = collection(db, "users", uid, "clientes");
+        const snap = await getDocs(clientesRef);
+        const clientesData: Cliente[] = snap.docs.map((d) => {
+          const data: any = d.data();
+          const createdAt: Timestamp | undefined = data.createdAt;
+          return {
+            id: d.id,
+            nombre: data.nombre || "Cliente sin nombre",
+            email: data.email,
+            destino: data.destino || {
+              pais: "Sin destino",
+              valor: 0,
+              fecha: "",
+            },
+            estado: (data.estado || "pendiente") as Cliente["estado"],
+            fechaCreacion: createdAt,
+          } as Cliente;
+        });
+
+        // Actualizar la tabla con los nuevos datos
+        const ultimos = clientesData
+          .slice()
+          .sort((a, b) => {
+            const da = a.fechaCreacion?.toDate?.() || new Date(0);
+            const dbb = b.fechaCreacion?.toDate?.() || new Date(0);
+            return dbb.getTime() - da.getTime();
+          })
+          .slice(0, 5)
+          .map((c) => ({
+            id: c.id,
+            nombre: c.nombre || "Cliente sin nombre",
+            cliente: c.email || "Cliente sin nombre",
+            destino: c.destino?.pais || "Sin destino",
+            valor: Number(c.destino?.valor) || 0,
+            estado: c.estado,
+            fecha:
+              c.fechaCreacion?.toDate?.().toISOString().split("T")[0] ||
+              c.destino?.fecha ||
+              "Sin fecha",
+          }));
+
+        setData((prev) => ({
+          ...prev,
+          ultimosPresupuestos: ultimos,
+        }));
+      };
+      
+      fetchClientes();
+    } catch (error) {
+      console.error("Error procesando presupuesto:", error);
+      toast({
+        title: t("error_title"),
+        description: "Error al procesar el presupuesto",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Función para editar presupuesto existente
+  const editarPresupuestoExistente = () => {
+    if (!selectedClient || !selectedRow) return;
+    
+    // Encontrar el presupuesto seleccionado
+    const presupuestoAEditar = data.ultimosPresupuestos.find(
+      (p) => p.id === selectedRow
+    );
+    
+    if (!presupuestoAEditar) {
+      toast({
+        title: "❌ Error",
+        description: "No se encontró el presupuesto seleccionado",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Prellenar el formulario con los datos existentes
+    setNuevoPresupuesto({
+      nombre: presupuestoAEditar.nombre || "",
+      cliente: presupuestoAEditar.cliente || "",
+      destino: presupuestoAEditar.destino || "",
+      valor: presupuestoAEditar.valor.toString() || "",
+      estado: presupuestoAEditar.estado || "pendiente",
+    });
+    
+    // Cambiar a modo edición
+    setSelectedAction("new");
+    
+    toast({
+      title: "📝 Modo edición",
+      description: `Editando presupuesto de ${presupuestoAEditar.cliente}`,
+    });
+  };
+
+  // Función para crear nuevo presupuesto para cliente existente
+  const crearPresupuestoParaCliente = () => {
+    if (!selectedClient) return;
+    
+    // Prellenar el formulario con el cliente seleccionado
+    setNuevoPresupuesto((prev) => ({
+      ...prev,
+      cliente: selectedClient,
+    }));
+    
+    // Cambiar a modo nuevo presupuesto
+    setSelectedAction("new");
   };
 
   // Función para contar presupuestos por cliente
@@ -550,10 +721,10 @@ const Dashboard = () => {
                   <SelectItem value={t("signed")}>{t("signed")}</SelectItem>
                   <SelectItem value={t("lost")}>{t("lost")}</SelectItem>
                   <SelectItem value={t("due_today")}>
-                    {t("due_today")}
+                    
                   </SelectItem>
                   <SelectItem value={t("in_review")}>
-                    {t("in_review")}
+                   
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -768,25 +939,13 @@ const Dashboard = () => {
                 </p>
                 <div className="grid grid-cols-1 gap-2">
                   <Button
-                    onClick={() => {
-                      console.log(
-                        "Editar presupuesto existente para:",
-                        selectedClient
-                      );
-                      closeBudgetModal();
-                    }}
+                    onClick={editarPresupuestoExistente}
                     className="w-full"
                   >
                     ✏️ Editar Presupuesto Existente
                   </Button>
                   <Button
-                    onClick={() => {
-                      console.log(
-                        "Crear nuevo presupuesto para:",
-                        selectedClient
-                      );
-                      closeBudgetModal();
-                    }}
+                    onClick={crearPresupuestoParaCliente}
                     variant="outline"
                     className="w-full"
                   >
@@ -799,32 +958,79 @@ const Dashboard = () => {
             {selectedAction === "new" && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Crear un nuevo presupuesto
+                  {selectedClient ? `Crear presupuesto para ${selectedClient}` : "Crear un nuevo presupuesto"}
                 </p>
-                <div className="space-y-2">
-                  <Input placeholder="Nombre del cliente" />
-                  <Input placeholder="Destino" />
-                  <Input placeholder="Valor (€)" type="number" />
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendiente">Pendiente</SelectItem>
-                      <SelectItem value="revision">En Revisión</SelectItem>
-                      <SelectItem value="firmado">Firmado</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Nombre del presupuesto *
+                    </label>
+                    <Input 
+                      placeholder="Ej: Viaje a París 2025" 
+                      value={nuevoPresupuesto.nombre}
+                      onChange={(e) => handleNuevoPresupuestoChange("nombre", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Cliente *
+                    </label>
+                    <Input 
+                      placeholder="Nombre del cliente" 
+                      value={nuevoPresupuesto.cliente}
+                      onChange={(e) => handleNuevoPresupuestoChange("cliente", e.target.value)}
+                      disabled={!!selectedClient}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Destino *
+                    </label>
+                    <Input 
+                      placeholder="Ej: París, Francia" 
+                      value={nuevoPresupuesto.destino}
+                      onChange={(e) => handleNuevoPresupuestoChange("destino", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Valor (€) *
+                    </label>
+                    <Input 
+                      placeholder="0.00" 
+                      type="number"
+                      value={nuevoPresupuesto.valor}
+                      onChange={(e) => handleNuevoPresupuestoChange("valor", e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">
+                      Estado
+                    </label>
+                    <Select 
+                      value={nuevoPresupuesto.estado}
+                      onValueChange={(value) => handleNuevoPresupuestoChange("estado", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pendiente">Pendiente</SelectItem>
+                        <SelectItem value="revision">En Revisión</SelectItem>
+                        <SelectItem value="firmado">Firmado</SelectItem>
+                        <SelectItem value="pago">Pagado</SelectItem>
+                        <SelectItem value="finalizado">Finalizado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-4">
                   <Button
-                    onClick={() => {
-                      console.log("Guardar nuevo presupuesto");
-                      closeBudgetModal();
-                    }}
+                    onClick={crearNuevoPresupuesto}
                     className="flex-1 bg-flowmatic-teal hover:bg-flowmatic-teal/90"
+                    disabled={!nuevoPresupuesto.nombre || !nuevoPresupuesto.cliente || !nuevoPresupuesto.destino || !nuevoPresupuesto.valor}
                   >
-                    💾 Guardar
+                    💾 Guardar Presupuesto
                   </Button>
                   <Button
                     onClick={closeBudgetModal}

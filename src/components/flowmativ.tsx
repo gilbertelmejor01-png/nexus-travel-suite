@@ -848,8 +848,7 @@ ${JSON.stringify(editedData, null, 2)}`;
         [{ header: [1, 2, 3, false] }],
         ["bold", "italic", "underline", "strike"],
         [{ list: "ordered" }, { list: "bullet" }],
-        ["link"],
-        ["image"],
+        ["link", "image"],
         ["clean"],
       ],
       handlers: {
