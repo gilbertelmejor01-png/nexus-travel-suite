@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   Download,
   Send,
+  FileText,
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -720,6 +721,485 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
+  // Función para descargar la plantilla HTML directamente desde el frontend
+  const descargarPlantillaHTML = () => {
+    if (!editedData) return;
+
+    // Crear el contenido HTML basado en la plantilla existente
+    const htmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
+<style>
+/* Estilos CSS para la plantilla Previa2 */
+.doc {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff;
+  color: #0f172a;
+  line-height: 1.6;
+  font-size: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px 20px;
+  text-align: center;
+  position: relative;
+}
+
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.brand-inline {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand-inline img {
+  height: 50px;
+  filter: brightness(0) invert(1);
+}
+
+.brand-name {
+  font-size: 1.8rem;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.client-name {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.hero-content h1 {
+  font-size: 3.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  letter-spacing: -1px;
+}
+
+.hero-content p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+.main-content {
+  padding: 40px;
+}
+
+.section {
+  margin-bottom: 50px;
+}
+
+.section-title {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: #0f172a;
+  margin-bottom: 30px;
+}
+
+.itineraire-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.itineraire-table th,
+.itineraire-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.itineraire-table th {
+  font-weight: 600;
+  background: #f8fafc;
+}
+
+.note-simple {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.programme-section {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
+}
+
+.programme-text {
+  line-height: 1.8;
+}
+
+.services-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.services-table th {
+  padding: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.services-table td {
+  padding: 25px;
+  vertical-align: top;
+}
+
+.inclus-list,
+.non-inclus-list {
+  list-style: none;
+  padding: 0;
+}
+
+.inclus-list li,
+.non-inclus-list li {
+  padding: 12px 0;
+  padding-left: 30px;
+  position: relative;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.inclus-list li:last-child,
+.non-inclus-list li:last-child {
+  border-bottom: none;
+}
+
+.inclus-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.non-inclus-list li::before {
+  content: '✗';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.prix-section {
+  text-align: center;
+  margin: 40px 0;
+  padding: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+}
+
+.prix-montant {
+  font-size: 3rem;
+  font-weight: 200;
+  margin-bottom: 10px;
+}
+
+.prix-detail {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.hotels-section {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
+}
+
+.hotels-intro {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.hotels-list {
+  display: grid;
+  gap: 20px;
+}
+
+.hotel-item {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.hotel-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.hotel-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 15px;
+}
+
+.footer-section {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-top: 60px;
+}
+
+.footer-section h2 {
+  font-size: 2.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.footer-section p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .hero-content h1 {
+    font-size: 2rem;
+  }
+  
+  .itineraire-table table {
+    font-size: 0.9rem;
+  }
+  
+  .prix-montant {
+    font-size: 2.5rem;
+  }
+  
+  .footer-section h2 {
+    font-size: 2rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="doc">
+  <!-- Header -->
+  <div class="hero-header">
+    <div class="hero-top">
+      <div class="brand-inline">
+        <img src="${editedData.logoUrl}" alt="Logo Flowtrip">
+        <span class="brand-name">FLOWTRIP</span>
+      </div>
+      <div class="client-name">Mme Doulcet</div>
+    </div>
+    <div class="hero-content">
+      <h1>${editedData.titreVoyage}</h1>
+      <p>Programme sur mesure — ${
+        editedData.table_itineraire_bref.length
+      } jours</p>
+    </div>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div class="main-content">
+    <!-- Vos Envies -->
+    <section class="section">
+      <h2 class="section-title">${
+        editedData.titre_vos_envies || "VOS ENVIES"
+      }</h2>
+      <div class="border border-gray-400 h-24 p-2">
+        ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+      </div>
+    </section>
+
+    <!-- Itinéraire -->
+    <section class="section">
+      <h2 class="section-title">${
+        editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE"
+      }</h2>
+      <div class="itineraire-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${editedData.titre_jour || "JOUR"}</th>
+              <th>${editedData.titre_date || "DATE"}</th>
+              <th>${editedData.titre_programme_table || "PROGRAMME"}</th>
+              <th>${editedData.titre_nuit || "NUIT"}</th>
+              <th>${editedData.titre_hotel || "HÔTEL"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(editedData.table_itineraire_bref || [])
+              .map(
+                (row, index) => `
+            <tr>
+              <td>${row.jour}</td>
+              <td>${row.date}</td>
+              <td>${row.programme}</td>
+              <td>${row.nuit}</td>
+              <td>${row.hôtel}</td>
+            </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="note-simple">
+        <strong>Personnalisation :</strong> ${
+          editedData.personalisationText ||
+          "Ce programme peut être ajusté en fonction de vos souhaits."
+        }
+      </div>
+    </section>
+
+    <!-- Programme détaillé -->
+    <section class="section programme-section">
+      <h2 class="section-title">${
+        editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"
+      }</h2>
+      <div class="programme-text">
+        ${
+          editedData.programme_detaille ||
+          "<p>Description du programme à venir</p>"
+        }
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section class="section">
+      <h2 class="section-title">${
+        editedData.detailVoyageTitle || "Détail de Votre Voyage"
+      }</h2>
+      <div class="services-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${editedData.titre_inclus || "INCLUS"}</th>
+              <th>${editedData.titre_non_inclus || "NON INCLUS"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <ul class="inclus-list">
+                  ${
+                    (editedData.inclus || [])
+                      .map((item) => `<li>${item}</li>`)
+                      .join("") || "<li>Aucun service inclus</li>"
+                  }
+                </ul>
+              </td>
+              <td>
+                <ul class="non-inclus-list">
+                  ${
+                    (editedData.non_inclus || [])
+                      .map((item) => `<li>${item}</li>`)
+                      .join("") || "<li>Aucun service non inclus</li>"
+                  }
+                </ul>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Prix -->
+    <section class="prix-section">
+      <div class="prix-montant">${
+        editedData.prix_par_personne || "À confirmer"
+      }</div>
+      <div class="prix-detail">${
+        editedData.prixDetailText || "par personne (base 30)"
+      }</div>
+      ${
+        editedData.chambre_simple
+          ? `
+      <div class="chambre-simple" style="margin-top: 15px; font-size: 1rem;">
+        <strong>${
+          editedData.titre_chambre_simple || "Chambre simple"
+        }:</strong> ${editedData.chambre_simple}
+      </div>
+      `
+          : ""
+      }
+    </section>
+
+    <!-- Hébergements -->
+    <section class="section hotels-section">
+      <h2 class="section-title">${
+        editedData.titre_hebergements || "VOS HÉBERGEMENTS"
+      }</h2>
+      <div class="hotels-intro">
+        <p>${
+          editedData.hotelsIntroText ||
+          "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+        }</p>
+      </div>
+      <div class="hotels-list">
+        ${editedData.hebergements_personnalises
+          .map(
+            (hotel, index) => `
+        <div class="hotel-item">
+          <div class="hotel-name">${hotel.nom}</div>
+          <div class="hotel-description">${hotel.description}</div>
+          ${
+            hotel.images[0]
+              ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">`
+              : ""
+          }
+        </div>
+        `
+          )
+          .join("")}
+      </div>
+      <div class="note-simple">
+        ${
+          editedData.disponibilityText ||
+          "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+        }
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-section">
+    <h2>${editedData.bonVoyageTitle || "Bon Voyage !"}</h2>
+    <p>${editedData.bonVoyageText || "Votre aventure vous attend"}</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+    // Crear blob y descargar
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "voyage-plan-prev2.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   if (loading)
     return (
       <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded">
@@ -815,6 +1295,11 @@ ${JSON.stringify(editedData, null, 2)}`;
           >
             <Download className="h-4 w-4 mr-2" />{" "}
             {generatingPdf ? "Generando PDF..." : "Descargar PDF"}
+          </Button>
+
+          <Button variant="secondary" onClick={descargarPlantillaHTML}>
+            <FileText className="h-4 w-4 mr-2" />
+            Descargar HTML
           </Button>
 
           <Button>
@@ -1727,17 +2212,74 @@ ${JSON.stringify(editedData, null, 2)}`;
             )}
           </div>
           <div className="hotels-list">
+            {/* Hoteles extraídos del itinerario */}
+            {extractHotels().map((hotel, index) => {
+              const hotelImages: Record<string, string> = {
+                "El Mesón de Maria":
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                "Hotel Atitlan 4*":
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                "Jungle Lodge 3*":
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                "Hôtel accueillant et moderne - King Room":
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752809571/Captura_de_pantalla_de_2025-07-17_21-18-08_m8z7sc.png",
+              };
+
+              const defaultImage =
+                "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png";
+              const image = hotelImages[hotel.nom] || defaultImage;
+
+              return (
+                <div key={index} className="hotel-item">
+                  <img src={image} alt={hotel.nom} className="hotel-image" />
+                  <div className="hotel-info">
+                    <div className="hotel-name">{hotel.nom}</div>
+                    <div className="hotel-description">{hotel.description}</div>
+                    <div className="hotel-stars">★★★★☆</div>
+                    {editing && (
+                      <div className="mt-4">
+                        <Label className="block mb-2">
+                          Ajouter une image (URL):
+                        </Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            placeholder="https://example.com/image.jpg"
+                            value={newImageUrl}
+                            onChange={(e) => setNewImageUrl(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button onClick={() => setActiveHotelIndex(index)}>
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Ajouter
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Hoteles personalizados (editables) */}
             {editedData.hebergements_personnalises.map((hotel, index) => (
-              <div key={index} className="hotel-item">
-                <div className="hotel-name">{hotel.nom}</div>
-                <div className="hotel-description">{hotel.description}</div>
-                {hotel.images[0] && (
+              <div key={`personalized-${index}`} className="hotel-item">
+                {hotel.images[0] ? (
                   <img
                     src={hotel.images[0]}
                     alt={hotel.nom}
                     className="hotel-image"
                   />
+                ) : (
+                  <div className="hotel-image bg-gray-200 flex items-center justify-center">
+                    <span>🖼️</span>
+                  </div>
                 )}
+                <div className="hotel-info">
+                  <div className="hotel-name">{hotel.nom}</div>
+                  <div className="hotel-description">{hotel.description}</div>
+                  <div className="hotel-stars">★★★★☆</div>
+                </div>
               </div>
             ))}
           </div>

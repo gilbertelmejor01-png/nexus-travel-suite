@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   Download,
   Send,
+  FileText,
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -716,6 +717,524 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
+  // Función para descargar la plantilla HTML directamente desde el frontend
+  const descargarPlantillaHTML = () => {
+    if (!editedData) return;
+
+    // Crear el contenido HTML basado en la plantilla existente
+    const htmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
+<style>
+/* Estilos CSS para la plantilla Previa3 */
+.document {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff;
+  color: #0f172a;
+  line-height: 1.6;
+  font-size: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.cover-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand img {
+  height: 50px;
+  filter: brightness(0) invert(1);
+}
+
+.brand h3 {
+  font-size: 1.8rem;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.brand p {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.ref {
+  text-align: right;
+}
+
+.ref div:first-child {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.ref div:last-child {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.cover h1 {
+  font-size: 3.5rem;
+  font-weight: 200;
+  margin: 0;
+  letter-spacing: -1px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 40px;
+  padding: 40px;
+}
+
+.sidebar {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
+  height: fit-content;
+}
+
+.side-block {
+  margin-bottom: 30px;
+}
+
+.side-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #374151;
+}
+
+.pill {
+  background: #667eea;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+.price-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.price-main {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 5px;
+}
+
+.price-sub {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.content {
+  padding: 0;
+}
+
+.section {
+  margin-bottom: 50px;
+}
+
+.sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.sec-title {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: #0f172a;
+  margin: 0;
+}
+
+.badge {
+  background: #667eea;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+}
+
+.timeline {
+  border-left: 2px solid #667eea;
+  padding-left: 20px;
+  margin-left: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  background: #667eea;
+  border-radius: 50%;
+}
+
+.t-jour {
+  font-weight: 600;
+  color: #667eea;
+  min-width: 200px;
+}
+
+.t-program p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.t-nuit {
+  font-style: italic;
+  color: #6b7280;
+  min-width: 100px;
+}
+
+.prog-body {
+  line-height: 1.8;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.card {
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card-head {
+  padding: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.card-head.green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.card-head.red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.list-clean {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.list-clean li {
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+  padding-left: 30px;
+}
+
+.list-clean li:last-child {
+  border-bottom: none;
+}
+
+.list-clean li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #10b981;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.list-clean.neg li::before {
+  content: '✗';
+  color: #ef4444;
+}
+
+.hotels-intro {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+.hotels-list {
+  display: grid;
+  gap: 20px;
+}
+
+.hotel-item {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.hotel-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.hotel-description {
+  color: #6b7280;
+  margin-bottom: 15px;
+}
+
+.hotel-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.note-box {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 30px;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.cta {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-top: 60px;
+}
+
+.cta h2 {
+  font-size: 2.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.cta p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px;
+  }
+  
+  .cover h1 {
+    font-size: 2rem;
+  }
+  
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .cta h2 {
+    font-size: 2rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="document">
+  <!-- Header -->
+  <section class="cover">
+    <div class="cover-top">
+      <div class="brand">
+        <img src="${editedData.logoUrl}" alt="Logo Flowtrip">
+        <div>
+          <h3>FLOWTRIP</h3>
+          <p>Voyages d'Exception</p>
+        </div>
+      </div>
+      <div class="ref">
+        <div>Proposition de Voyage</div>
+        <div>Référence: FLO-2025-001</div>
+      </div>
+    </div>
+    <h1>${editedData.titreVoyage}</h1>
+  </section>
+
+  <!-- Contenido Principal -->
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="side-block">
+        <div class="side-title">Destination</div>
+        <div class="pill">${editedData.pays_destination}</div>
+      </div>
+      <div class="side-block">
+        <div class="side-title">Tarif indicatif</div>
+        <div class="price-card">
+          <div class="price-main">${editedData.prix_par_personne}</div>
+          <div class="price-sub">par personne</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <!-- Vos Envies -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_vos_envies || "VOS ENVIES"}</div>
+        </div>
+        <div class="border border-gray-400 h-24 my-3 p-2">
+          ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+        </div>
+      </section>
+
+      <!-- Itinéraire en bref -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE EN BREF"}</div>
+          <span class="badge">${editedData.table_itineraire_bref.length} jours</span>
+        </div>
+        <div class="timeline">
+          ${(editedData.table_itineraire_bref || []).map((row, index) => `
+          <div class="row">
+            <div class="t-jour">${row.jour} · ${row.date}</div>
+            <div class="t-program"><p>${row.programme}</p></div>
+            <div class="t-nuit">${row.nuit}</div>
+          </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- Programme détaillé -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"}</div>
+        </div>
+        <div class="prog-body">
+          ${editedData.programme_detaille || "<p>Description du programme à venir</p>"}
+        </div>
+      </section>
+
+      <!-- Détails / Services -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">Détails de votre voyage</div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head green">${editedData.titre_inclus || "INCLUS"}</div>
+            <div class="card-body">
+              <ul class="list-clean">
+                ${(editedData.inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service inclus</li>'}
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head red">${editedData.titre_non_inclus || "NON INCLUS"}</div>
+            <div class="card-body">
+              <ul class="list-clean neg">
+                ${(editedData.non_inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service non inclus</li>'}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hébergements personnalisés -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_hebergements || "VOS HÉBERGEMENTS"}</div>
+        </div>
+        <div class="hotels-intro">
+          <p>${editedData.intro_hebergements || "Hébergements sélectionnés pour leur confort, charme et localisation."}</p>
+        </div>
+        <div class="hotels-list">
+          ${(editedData.hebergements_personnalises || []).map((hotel, index) => `
+          <div class="hotel-item">
+            <div class="hotel-name">${hotel.nom}</div>
+            <div class="hotel-description">${hotel.description}</div>
+            ${hotel.images[0] ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">` : ''}
+          </div>
+          `).join('')}
+        </div>
+        <div class="note-box">
+          <p><strong>NOTE :</strong> ${editedData.note_hebergement || "Les hébergements proposés sont sujets à disponibilité au moment de la réservation."}</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- CTA -->
+  <section class="cta">
+    <h2>Bon voyage</h2>
+    <p>${editedData.bonVoyageText || "Votre aventure espagnole vous attend"}</p>
+  </section>
+</div>
+</body>
+</html>`;
+
+    // Crear blob y descargar
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "voyage-plan-prev3.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   if (loading)
     return (
       <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded">
@@ -798,6 +1317,11 @@ ${JSON.stringify(editedData, null, 2)}`;
           >
             <Download className="h-4 w-4 mr-2" />{" "}
             {generatingPdf ? "Generando PDF..." : "Descargar PDF"}
+          </Button>
+
+          <Button variant="secondary" onClick={descargarPlantillaHTML}>
+            <FileText className="h-4 w-4 mr-2" />
+            Descargar HTML
           </Button>
 
           <Button>
