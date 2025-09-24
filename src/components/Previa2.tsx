@@ -81,6 +81,9 @@ export interface VoyageData {
   hotelsIntroText?: string;
   disponibilityText?: string;
   bonVoyageTitle?: string;
+  brandName?: string;
+  clientName?: string;
+  programDescription?: string;
 }
 
 interface PreviaProps {
@@ -1388,9 +1391,10 @@ ${JSON.stringify(editedData, null, 2)}`;
                 <div className="space-y-2">
                   <Label className="block text-xs">Nombre Marca:</Label>
                   <Input
-                    value="FLOWTRIP"
-                    readOnly
+                    value={editedData.brandName || "FLOWTRIP"}
+                    onChange={(e) => handleChange("brandName", e.target.value)}
                     className="font-semibold w-32"
+                    placeholder="FLOWTRIP"
                   />
                 </div>
               </div>
@@ -1403,9 +1407,14 @@ ${JSON.stringify(editedData, null, 2)}`;
           </div>
           <div className="client-name">
             {editing ? (
-              <Input value="Mme Doulcet" readOnly className="w-32 text-sm" />
+              <Input 
+                value={editedData.clientName || "Mme Doulcet"}
+                onChange={(e) => handleChange("clientName", e.target.value)}
+                className="w-32 text-sm"
+                placeholder="Mme Doulcet"
+              />
             ) : (
-              "Mme Doulcet"
+              editedData.clientName || "Mme Doulcet"
             )}
           </div>
         </div>
@@ -1420,12 +1429,13 @@ ${JSON.stringify(editedData, null, 2)}`;
               />
               <div className="flex items-center justify-center gap-2">
                 <Input
-                  value={`Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
-                  readOnly
+                  value={editedData.programDescription || `Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
+                  onChange={(e) => handleChange("programDescription", e.target.value)}
                   className="text-lg text-center bg-transparent border-none w-auto"
+                  placeholder={`Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
                 />
                 <Button
-                  onClick={() => openAiModal("titreVoyage")}
+                  onClick={() => openAiModal("programDescription")}
                   size="sm"
                   variant="outline"
                 >
@@ -2262,7 +2272,7 @@ ${JSON.stringify(editedData, null, 2)}`;
             })}
 
             {/* Hoteles personalizados (editables) */}
-            {editedData.hebergements_personnalises.map((hotel, index) => (
+            {(editedData.hebergements_personnalises || []).map((hotel, index) => (
               <div key={`personalized-${index}`} className="hotel-item">
                 {hotel.images[0] ? (
                   <img

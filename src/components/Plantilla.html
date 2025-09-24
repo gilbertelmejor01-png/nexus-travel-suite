@@ -1,727 +1,4610 @@
-<!DOCTYPE html>
+
+import React, { useState, useRef } from "react";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Edit3,
+  Trash2,
+  Plus,
+  GripVertical,
+  Palette,
+  Image as ImageIcon,
+  Download,
+  Send,
+  FileText,
+} from "lucide-react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import "./proposition.css"; // CSS del HTML convertido en un archivo separado
+
+interface ItineraryEntry {
+  jour: string;
+  date: string;
+  programme: string;
+  nuit: string;
+  hôtel: string;
+}
+
+interface HotelInfo {
+  nom: string;
+  description: string;
+  images: string[];
+}
+
+export interface VoyageData {
+  programme_detaille: string;
+  table_itineraire_bref: ItineraryEntry[];
+  prix_par_personne: string;
+  chambre_simple: string;
+  remarques_tarifs: string;
+  inclus: string[];
+  non_inclus: string[];
+  pays_destination: string;
+  themeColor: string;
+  titreVoyage: string;
+  logoUrl: string;
+  imageProgrammeUrl: string;
+  bonVoyageText: string;
+  vos_envies: string;
+  note_hebergement: string;
+  note_programme: string;
+  intro_hebergements: string;
+  titre_vos_envies: string;
+  titre_itineraire_bref: string;
+  titre_programme_detaille: string;
+  titre_inclus: string;
+  titre_non_inclus: string;
+  titre_hebergements: string;
+  titre_immersion: string;
+  titre_tarif: string;
+  titre_chambre_simple: string;
+  titre_remarques: string;
+  titre_jour: string;
+  titre_date: string;
+  titre_programme_table: string;
+  titre_nuit: string;
+  titre_hotel: string;
+  hebergements_personnalises: HotelInfo[];
+  personalisationText?: string;
+  detailVoyageTitle?: string;
+  prixDetailText?: string;
+  hotelsIntroText?: string;
+  disponibilityText?: string;
+  bonVoyageTitle?: string;
+}
+
+interface PreviaProps {
+  data: VoyageData | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const Previa2 = ({ data, loading, error }: PreviaProps) => {
+  const { currentUser } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [editedData, setEditedData] = useState<VoyageData | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [activeHotelIndex, setActiveHotelIndex] = useState<number | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [hotelImages, setHotelImages] = useState<{ [key: string]: string }>({});
+  const [conversacionId, setConversacionId] = useState<string | null>(null);
+  // Estados para la funcionalidad de IA granular
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+
+  // Estados para manejo de imágenes y enlaces en ReactQuill
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const quillRef = useRef<ReactQuill>(null);
+
+  // Función para obtener el ID de conversación desde el perfil del usuario
+  const obtenerConversacionId = async (uid: string): Promise<string | null> => {
+    try {
+      const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
+      const perfilSnap = await getDoc(perfilDocRef);
+
+      if (perfilSnap.exists()) {
+        const data = perfilSnap.data();
+        return data?.conexionesIA?.conversacion || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error obteniendo ID de conversación:", error);
+      return null;
+    }
+  };
+
+  // Función para llamar a la API de IA (DeepSeek)
+  const callAI = async (prompt: string, section?: string) => {
+    if (!editedData || !prompt.trim()) return;
+
+    setAiLoading(true);
+    setAiResponse(null);
+
+    // Verificar que la API key esté configurada
+    const apiKey =
+      import.meta.env.VITE_DEEPSEEK_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl =
+      import.meta.env.VITE_DEEPSEEK_API_URL ||
+      "https://api.deepseek.com/v1/chat/completions";
+
+    if (!apiKey) {
+      setAiResponse(
+        "❌ Error: API key no configurada. Verifica tu archivo .env"
+      );
+      setAiLoading(false);
+      return;
+    }
+
+    try {
+      const systemPrompt = `Eres un editor inteligente especializado en documentos de viaje. Tu función es modificar, enriquecer, traducir, reorganizar o rediseñar el contenido del documento según las instrucciones del usuario.
+
+REGLAS IMPORTANTES:
+1. SIEMPRE responde en el idioma solicitado por el usuario
+2. Para descripciones → da 3 opciones diferentes
+3. Para cambios visuales → devuelve JSON con estilos sugeridos
+4. Para eliminación/movimiento → devuelve JSON actualizado
+5. NUNCA elimines información crítica (fechas, precios, contactos)
+6. Mantén la estructura JSON de VoyageData
+7. Si el usuario pide eliminar una sección, devuelve JSON con esa sección vacía o eliminada
+8. Para rediseño completo de plantilla, puedes modificar:
+   - themeColor (colores del tema)
+   - Estilos de imágenes (tamaños, centrado, etc.)
+   - Tipografía y disposición
+   - Paletas de colores
+   - Estilos visuales generales
+
+FORMATO DE RESPUESTA:
+- Explicación breve para el usuario
+- Resultado aplicable (texto o JSON según el caso)
+
+${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
+
+DATOS ACTUALES DEL DOCUMENTO:
+${JSON.stringify(editedData, null, 2)}`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat", // Modelo de DeepSeek
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error de API:", response.status, errorText);
+        throw new Error(`Error de API: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0]?.message?.content;
+
+      if (aiResponse) {
+        setAiResponse(aiResponse);
+
+        // Intentar parsear si es JSON
+        try {
+          const parsedResponse = JSON.parse(aiResponse);
+          if (parsedResponse && typeof parsedResponse === "object") {
+            // Aplicar cambios automáticamente si es JSON válido
+            setEditedData({
+              ...editedData,
+              ...parsedResponse,
+            });
+          }
+        } catch (e) {
+          // Si no es JSON, solo mostrar la respuesta
+          console.log("Respuesta de IA (no JSON):", aiResponse);
+        }
+      }
+    } catch (error) {
+      console.error("Error detallado llamando a la IA:", error);
+
+      // Manejo de errores específicos
+      if (error.message.includes("401")) {
+        setAiResponse(
+          "❌ Error 401: API key inválida o expirada. Verifica tu clave de DeepSeek."
+        );
+      } else if (error.message.includes("429")) {
+        setAiResponse("❌ Error 429: Límite de tasa excedido o sin créditos.");
+      } else if (error.message.includes("Failed to fetch")) {
+        setAiResponse(
+          "❌ Error de conexión: No se pudo conectar a la API de DeepSeek."
+        );
+      } else {
+        setAiResponse("❌ Error al procesar la solicitud: " + error.message);
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Función para abrir el modal de IA para una sección específica
+  const openAiModal = (section: string) => {
+    setActiveAiSection(section);
+    setShowAiModal(true);
+    setAiPrompt("");
+    setAiResponse(null);
+  };
+
+  // Inicializar datos editados cuando los datos llegan
+  React.useEffect(() => {
+    if (data && !editedData) {
+      setEditedData({
+        titreVoyage: "Votre voyage avec Néogusto",
+        logoUrl:
+          "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
+        imageProgrammeUrl:
+          "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
+        bonVoyageText: "BON VOYAGE !",
+        vos_envies: "",
+        note_hebergement:
+          "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
+        note_programme:
+          "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
+        intro_hebergements:
+          "Hébergements sélectionnés pour leur confort, charme et localisation.",
+        // Valores por defecto para los títulos
+        titre_vos_envies: "VOS ENVIES",
+        titre_itineraire_bref: "VOTRE ITINÉRAIRE EN BREF",
+        titre_programme_detaille: "PROGRAMME DÉTAILLÉ",
+        titre_inclus: "INCLUS",
+        titre_non_inclus: "NON INCLUS",
+        titre_hebergements: "VOS HÉBERGEMENTS",
+        titre_immersion: "Immersion au",
+        // Valores por defecto para textos de tarifas
+        titre_tarif: "TARIF par personne",
+        titre_chambre_simple: "Chambre simple",
+        titre_remarques: "Remarques",
+        // Valores por defecto para encabezados de tabla
+        titre_jour: "JOUR",
+        titre_date: "DATE",
+        titre_programme_table: "PROGRAMME",
+        titre_nuit: "NUIT",
+        titre_hotel: "HÔTEL",
+        // Hoteles personalizados
+        hebergements_personnalises: [],
+        ...data,
+        themeColor: data.themeColor || "#3b82f6",
+      });
+    }
+  }, [data]);
+
+  // Obtener el ID de conversación cuando el usuario esté autenticado
+  React.useEffect(() => {
+    const cargarConversacionId = async () => {
+      if (currentUser?.uid) {
+        const id = await obtenerConversacionId(currentUser.uid);
+        setConversacionId(id);
+      }
+    };
+
+    cargarConversacionId();
+  }, [currentUser]);
+
+  const extractHotels = (): HotelInfo[] => {
+    if (!editedData?.table_itineraire_bref) return [];
+
+    const seen = new Set<string>();
+    return editedData.table_itineraire_bref
+      .filter(
+        (entry) =>
+          entry.hôtel && !seen.has(entry.hôtel) && seen.add(entry.hôtel)
+      )
+      .map((entry) => ({
+        nom: entry.hôtel,
+        description: `Nuit à ${entry.nuit || "emplacement inconnu"}`,
+        images: [],
+      }));
+  };
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination || !editedData) return;
+
+    // Reordenar itinerario
+    if (result.type === "itinerary") {
+      const items = Array.from(editedData.table_itineraire_bref);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        table_itineraire_bref: items,
+      });
+    }
+    // Reordenar listas (inclus, non_inclus)
+    else if (result.type === "inclus" || result.type === "non_inclus") {
+      const field = result.type;
+      const items = Array.from(editedData[field] as string[]);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        [field]: items,
+      });
+    }
+    // Reordenar hoteles personalizados
+    else if (result.type === "hebergements_personnalises") {
+      const items = Array.from(editedData.hebergements_personnalises || []);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: items,
+      });
+    }
+  };
+
+  const quillModules = {
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      },
+    },
+  };
+
+  const quillFormats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "list",
+    "bullet",
+    "link",
+    "image",
+  ];
+
+  const handleChange = (field: keyof VoyageData, value: string) => {
+    if (!editedData) return;
+
+    setEditedData({
+      ...editedData,
+      [field]: value,
+    });
+  };
+
+  const handleArrayChange = (field: keyof VoyageData, value: string) => {
+    if (!editedData) return;
+
+    const arrayValue = value.split("\n").filter((item) => item.trim() !== "");
+    setEditedData({
+      ...editedData,
+      [field]: arrayValue,
+    });
+  };
+
+  const handleItineraryChange = (
+    index: number,
+    field: keyof ItineraryEntry,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedItinerary = [...editedData.table_itineraire_bref];
+    updatedItinerary[index] = {
+      ...updatedItinerary[index],
+      [field]: value,
+    };
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: updatedItinerary,
+    });
+  };
+
+  const addNewItineraryEntry = () => {
+    if (!editedData) return;
+
+    const newEntry: ItineraryEntry = {
+      jour: "",
+      date: "",
+      programme: "",
+      nuit: "",
+      hôtel: "",
+    };
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: [...editedData.table_itineraire_bref, newEntry],
+    });
+  };
+
+  const removeItineraryEntry = (index: number) => {
+    if (!editedData) return;
+
+    const updatedItinerary = [...editedData.table_itineraire_bref];
+    updatedItinerary.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: updatedItinerary,
+    });
+  };
+
+  const addNewListItem = (field: "inclus" | "non_inclus") => {
+    if (!editedData) return;
+
+    const currentList = editedData[field] || [];
+    setEditedData({
+      ...editedData,
+      [field]: [...currentList, ""],
+    });
+  };
+
+  const removeListItem = (field: "inclus" | "non_inclus", index: number) => {
+    if (!editedData) return;
+
+    const currentList = editedData[field] || [];
+    const updatedList = [...currentList];
+
+    updatedList.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      [field]: updatedList,
+    });
+  };
+
+  const handleListItemChange = (
+    field: "inclus" | "non_inclus",
+    index: number,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedList = [...editedData[field]];
+    updatedList[index] = value;
+
+    setEditedData({
+      ...editedData,
+      [field]: updatedList,
+    });
+  };
+
+  const addImageToHotel = (hotelIndex: number) => {
+    if (!editedData || !newImageUrl.trim()) return;
+
+    const hotels = extractHotels();
+    if (hotelIndex >= hotels.length) return;
+
+    // Actualizar el estado para incluir la nueva imagen
+    const hotelName = hotels[hotelIndex].nom;
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+
+    // Buscar el hotel por nombre y añadir la imagen
+    const hotelIndexInPersonalized = updatedHotels.findIndex(
+      (hotel) => hotel.nom === hotelName
+    );
+
+    if (hotelIndexInPersonalized !== -1) {
+      const currentImages =
+        updatedHotels[hotelIndexInPersonalized].images || [];
+      updatedHotels[hotelIndexInPersonalized] = {
+        ...updatedHotels[hotelIndexInPersonalized],
+        images: [...currentImages, newImageUrl.trim()],
+      };
+
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: updatedHotels,
+      });
+    }
+
+    setNewImageUrl("");
+  };
+
+  const addNewHotelPersonnalise = () => {
+    if (!editedData) return;
+
+    const newHotel: HotelInfo = {
+      nom: "Nouvel hôtel",
+      description: "Description de l'hôtel",
+      images: [],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: [
+        ...(editedData.hebergements_personnalises || []),
+        newHotel,
+      ],
+    });
+  };
+
+  const removeHotelPersonnalise = (index: number) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const handleHotelPersonnaliseChange = (
+    index: number,
+    field: keyof HotelInfo,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels[index] = {
+      ...updatedHotels[index],
+      [field]: value,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const addImageToHotelPersonnalise = (
+    hotelIndex: number,
+    imageUrl: string
+  ) => {
+    if (!editedData || !imageUrl.trim()) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const currentImages = updatedHotels[hotelIndex].images || [];
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: [...currentImages, imageUrl.trim()],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const removeImageFromHotelPersonnalise = (
+    hotelIndex: number,
+    imageIndex: number
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const updatedImages = [...updatedHotels[hotelIndex].images];
+    updatedImages.splice(imageIndex, 1);
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: updatedImages,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  // Función para agregar imagen desde el modal
+  const handleAddImage = () => {
+    if (imageUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, "image", imageUrl);
+        setShowImageModal(false);
+        setImageUrl("");
+      }
+    }
+  };
+
+  // Función para agregar enlace desde el modal
+  const handleAddLink = () => {
+    if (linkUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.formatText(range.index, range.length, "link", linkUrl);
+        setShowLinkModal(false);
+        setLinkUrl("");
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editedData) return;
+
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      // Verificar que tenemos el ID de conversación
+      if (!conversacionId) {
+        throw new Error("No se pudo obtener el ID de conversación del usuario");
+      }
+
+      const docRef = doc(db, "conversacion", conversacionId);
+      await updateDoc(docRef, {
+        output: editedData,
+      });
+
+      setSaveSuccess(true);
+
+      setTimeout(() => setSaveSuccess(false), 3000);
+      setEditing(false);
+    } catch (error) {
+      console.error("Error saving data:", error);
+      setSaveError("Error al guardar los cambios. Intente nuevamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const generarPDF = async () => {
+    if (!editedData) return;
+
+    setGeneratingPdf(true);
+    try {
+      const response = await fetch("http://38.242.224.81:3000/generar-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editedData),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Error del servidor: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "voyage-plan.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      setSaveError(
+        `Error de conexión: No se pudo conectar al servidor. Verifica que el servidor esté ejecutándose en http://38.242.224.81:3000`
+      );
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  // Función para descargar la plantilla HTML directamente desde el frontend
+  const descargarPlantillaHTML = () => {
+    if (!editedData) return;
+
+    // Crear el contenido HTML basado en la plantilla existente
+    const htmlContent = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Proposition de Voyage — Modèle C (Flowtrip)</title>
+<title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
 <style>
-:root {
---brand-color: #667eea; /* Couleur principale personnalisable */
---brand-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
---dark: #0f172a;
---light: #f8fafc;
---gray: #64748b;
---paper: #ffffff;
+/* Estilos CSS para la plantilla Previa2 */
+.doc {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff;
+  color: #0f172a;
+  line-height: 1.6;
+  font-size: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-background: #fff;
-color: var(--dark);
-line-height: 1.6;
-font-size: 15px;
+
+.hero-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px 20px;
+  text-align: center;
+  position: relative;
 }
-.container {
-max-width: 1200px;
-margin: 0 auto;
-background: #fff;
+
+.hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
 }
-/* Hero Section - Design épuré */
-.hero {
-min-height: 400px;
-background: var(--brand-gradient);
-position: relative;
-display: flex;
-align-items: center;
-justify-content: center;
-overflow: hidden;
+
+.brand-inline {
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
-.hero::before {
-content: '';
-position: absolute;
-top: 0;
-left: 0;
-right: 0;
-bottom: 0;
-background: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60"
-xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff"
-fill-opacity="0.05"><path d="M36
-34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6
-34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/></g></g></svg>')
-repeat;
+
+.brand-inline img {
+  height: 50px;
+  filter: brightness(0) invert(1);
 }
-.hero-content {
-text-align: center;
-color: white;
-z-index: 1;
-padding: 40px 20px;
-max-width: 800px;
+
+.brand-name {
+  font-size: 1.8rem;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
 }
-.hero-logo {
-display: flex;
-align-items: center;
-justify-content: center;
-gap: 15px;
-margin-bottom: 40px;
+
+.client-name {
+  font-size: 1.2rem;
+  opacity: 0.9;
 }
-.hero-logo img {
-height: 50px;
-filter: brightness(0) invert(1);
+
+.hero-content h1 {
+  font-size: 3.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  letter-spacing: -1px;
 }
-.hero-logo h2 {
-font-size: 1.8rem;
-font-weight: 300;
-letter-spacing: 3px;
-text-transform: uppercase;
+
+.hero-content p {
+  font-size: 1.2rem;
+  opacity: 0.9;
 }
-.hero h1 {
-font-size: 3.5rem;
-font-weight: 200;
-margin-bottom: 15px;
-letter-spacing: -1px;
-}
-.hero-subtitle {
-font-size: 1.2rem;
-opacity: 0.9;
-font-weight: 300;
-}
-.hero-meta {
-position: absolute;
-top: 20px;
-right: 20px;
-text-align: right;
-color: white;
-font-size: 0.85rem;
-opacity: 0.8;
-}
-/* Main Layout - Changé pour single column */
+
 .main-content {
-padding: 40px;
-max-width: 1200px;
-margin: 0 auto;
+  padding: 40px;
 }
-/* Content Sections */
-.content-section {
-margin-bottom: 50px;
+
+.section {
+  margin-bottom: 50px;
 }
-.section-header {
-margin-bottom: 30px;
-}
+
 .section-title {
-font-size: 1.8rem;
-font-weight: 300;
-color: var(--dark);
-margin-bottom: 10px;
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: #0f172a;
+  margin-bottom: 30px;
 }
-.section-subtitle {
-color: var(--gray);
-font-size: 0.95rem;
+
+.itineraire-table table {
+  width: 100%;
+  border-collapse: collapse;
 }
-/* Timeline Design */
-.timeline {
-position: relative;
-padding-left: 40px;
+
+.itineraire-table th,
+.itineraire-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
 }
-.timeline::before {
-content: '';
-position: absolute;
-left: 10px;
-top: 0;
-bottom: 0;
-width: 2px;
-background: var(--brand-gradient);
+
+.itineraire-table th {
+  font-weight: 600;
+  background: #f8fafc;
 }
-.timeline-item {
-position: relative;
-padding-bottom: 40px;
+
+.note-simple {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 0.9rem;
 }
-.timeline-item::before {
-content: '';
-position: absolute;
-left: -35px;
-top: 5px;
-width: 12px;
-height: 12px;
-background: white;
-border: 3px solid var(--brand-color);
-border-radius: 50%;
+
+.programme-section {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
 }
-.timeline-date {
-font-weight: 600;
-color: var(--brand-color);
-margin-bottom: 8px;
-font-size: 0.9rem;
-text-transform: uppercase;
-letter-spacing: 1px;
+
+.programme-text {
+  line-height: 1.8;
 }
-.timeline-content {
-background: white;
-padding: 20px;
-border-radius: 15px;
-box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-border-left: 4px solid var(--brand-color);
+
+.services-table table {
+  width: 100%;
+  border-collapse: collapse;
 }
-.timeline-location {
-display: inline-block;
-margin-top: 10px;
-padding: 5px 12px;
-background: var(--light);
-border-radius: 20px;
-font-size: 0.85rem;
-color: var(--gray);
+
+.services-table th {
+  padding: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: white;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
-/* Programme Cards */
-.programme-grid {
-display: grid;
-gap: 25px;
+
+.services-table td {
+  padding: 25px;
+  vertical-align: top;
 }
-.programme-card {
-display: grid;
-grid-template-columns: 250px 1fr;
-gap: 30px;
-padding: 25px;
-background: white;
-border-radius: 20px;
-box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+
+.inclus-list,
+.non-inclus-list {
+  list-style: none;
+  padding: 0;
 }
-.programme-image {
-width: 100%;
-height: 180px;
-object-fit: cover;
-border-radius: 15px;
+
+.inclus-list li,
+.non-inclus-list li {
+  padding: 12px 0;
+  padding-left: 30px;
+  position: relative;
+  border-bottom: 1px solid #f1f5f9;
 }
-.programme-info {
-display: flex;
-flex-direction: column;
-justify-content: center;
+
+.inclus-list li:last-child,
+.non-inclus-list li:last-child {
+  border-bottom: none;
 }
-.programme-day {
-display: inline-block;
-padding: 6px 14px;
-background: var(--brand-gradient);
-color: white;
-border-radius: 20px;
-font-weight: 600;
-font-size: 0.85rem;
-margin-bottom: 12px;
-width: fit-content;
+
+.inclus-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.1rem;
 }
-.programme-title {
-font-size: 1.3rem;
-font-weight: 600;
-color: var(--dark);
-margin-bottom: 12px;
+
+.non-inclus-list li::before {
+  content: '✗';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.1rem;
 }
-.programme-desc {
-color: var(--gray);
-line-height: 1.7;
+
+.prix-section {
+  text-align: center;
+  margin: 40px 0;
+  padding: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
 }
-/* Services Cards */
-.services-grid {
-display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 30px;
+
+.prix-montant {
+  font-size: 3rem;
+  font-weight: 200;
+  margin-bottom: 10px;
 }
-.service-card {
-background: white;
-border-radius: 20px;
-overflow: hidden;
-box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+
+.prix-detail {
+  font-size: 1.1rem;
+  opacity: 0.9;
 }
-.service-header {
-padding: 20px;
-font-weight: 600;
-font-size: 1.1rem;
-color: white;
-background: var(--brand-gradient);
+
+.hotels-section {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
 }
-.service-list {
-padding: 25px;
-list-style: none;
+
+.hotels-intro {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
 }
-.service-list li {
-padding: 12px 0;
-padding-left: 30px;
-position: relative;
-color: var(--dark);
-border-bottom: 1px solid var(--light);
+
+.hotels-list {
+  display: grid;
+  gap: 20px;
 }
-.service-list li:last-child {
-border-bottom: none;
+
+.hotel-item {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
-.service-list li::before {
-content: '✓';
-position: absolute;
-left: 0;
-color: var(--brand-color);
-font-weight: bold;
-font-size: 1.1rem;
+
+.hotel-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 10px;
 }
-.service-list.excluded li::before {
-content: '✗';
-color: var(--brand-color);
-}
-/* Hotels Section */
-.hotels-grid {
-display: grid;
-gap: 25px;
-}
-.hotel-card {
-display: grid;
-grid-template-columns: 250px 1fr;
-gap: 25px;
-padding: 25px;
-background: white;
-border-radius: 20px;
-box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
+
 .hotel-image {
-width: 100%;
-height: 180px;
-object-fit: cover;
-border-radius: 15px;
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 15px;
 }
-.hotel-info h4 {
-font-size: 1.2rem;
-color: var(--dark);
-margin-bottom: 10px;
+
+.footer-section {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-top: 60px;
 }
-.hotel-info p {
-color: var(--gray);
-line-height: 1.6;
+
+.footer-section h2 {
+  font-size: 2.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
-.hotel-stars {
-display: flex;
-gap: 3px;
-margin-top: 10px;
-color: #f59e0b;
+
+.footer-section p {
+  font-size: 1.1rem;
+  opacity: 0.9;
 }
-/* Note Box - Sans fond jaune */
-.note-box {
-margin-top: 20px;
-padding: 15px;
-border-radius: 10px;
-border: 1px solid #e5e7eb;
-}
-.note-box p {
-color: var(--gray);
-font-size: 0.9rem;
-}
-/* Price Info Section - Nouveau */
-.price-info-section {
-background: white;
-border-radius: 25px;
-padding: 40px;
-box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-margin-top: 40px;
-}
-.price-info-grid {
-display: grid;
-grid-template-columns: 2fr 1fr 1fr 1fr;
-gap: 30px;
-align-items: center;
-}
-.price-main {
-text-align: center;
-border-right: 2px solid var(--light);
-padding-right: 30px;
-}
-.price-label {
-font-size: 0.9rem;
-color: var(--gray);
-text-transform: uppercase;
-letter-spacing: 1px;
-margin-bottom: 15px;
-}
-.price-amount {
-font-size: 3rem;
-font-weight: 200;
-color: var(--dark);
-margin-bottom: 10px;
-}
-.price-per {
-color: var(--gray);
-font-size: 0.95rem;
-}
-.info-item {
-text-align: center;
-}
-.info-item h4 {
-font-size: 0.85rem;
-text-transform: uppercase;
-letter-spacing: 1px;
-color: var(--gray);
-margin-bottom: 8px;
-}
-.info-item p {
-color: var(--dark);
-font-weight: 500;
-font-size: 1rem;
-}
-/* CTA Section */
-.cta-section {
-background: var(--brand-gradient);
-color: white;
-padding: 60px 40px;
-text-align: center;
-margin-top: 60px;
-}
-.cta-section h2 {
-font-size: 2.5rem;
-font-weight: 200;
-margin-bottom: 15px;
-text-transform: uppercase;
-letter-spacing: 2px;
-}
-.cta-section p {
-font-size: 1.1rem;
-opacity: 0.9;
-}
-/* Conditions */
-.conditions {
-background: var(--light);
-padding: 40px;
-border-top: 3px solid var(--brand-color);
-}
-.conditions h3 {
-text-align: center;
-font-size: 1.5rem;
-color: var(--dark);
-margin-bottom: 25px;
-font-weight: 300;
-}
-.conditions-content {
-max-width: 900px;
-margin: 0 auto;
-background: white;
-padding: 30px;
-border-radius: 15px;
-color: var(--gray);
-line-height: 1.8;
-}
-/* Responsive */
-@media (max-width: 1024px) {
-.programme-card, .hotel-card {
-grid-template-columns: 1fr;
-}
-.price-info-grid {
-grid-template-columns: 1fr;
-gap: 20px;
-}
-.price-main {
-border-right: none;
-border-bottom: 2px solid var(--light);
-padding-right: 0;
-padding-bottom: 20px;
-}
-}
+
 @media (max-width: 768px) {
-.hero h1 {
-font-size: 2rem;
-}
-.services-grid {
-grid-template-columns: 1fr;
-}
-.main-content {
-padding: 20px;
-}
-.price-amount {
-font-size: 2.5rem;
-}
-}
-/* Print */
-@media print {
-.programme-card,
-.service-card,
-.hotel-card,
-.price-info-section {
-page-break-inside: avoid;
-}
+  .hero-content h1 {
+    font-size: 2rem;
+  }
+  
+  .itineraire-table table {
+    font-size: 0.9rem;
+  }
+  
+  .prix-montant {
+    font-size: 2.5rem;
+  }
+  
+  .footer-section h2 {
+    font-size: 2rem;
+  }
 }
 </style>
 </head>
 <body>
-<div class="container">
-<!-- Hero Section -->
-<section class="hero">
-<div class="hero-meta">
-<div>Proposition de Voyage</div>
-<div>Référence: FLO-2025-001</div>
-</div>
-<div class="hero-content">
-<div class="hero-logo">
-<img
-src="https://res.cloudinary.com/dcyuqvulc/image/upload/v1756804379/FullLogo_Transparent_N
-oBuffer_9_stajge.png" alt="Flowtrip">
-<h2>Flowtrip</h2>
-</div>
-<h1>Votre voyage en Espagne</h1>
-<p class="hero-subtitle">7 jours d'exception • Madrid · Tolède · Ségovie · Ávila</p>
-</div>
-</section>
-<!-- Main Content -->
-<main class="main-content">
-<!-- Itinéraire Section -->
-<section class="content-section">
-<div class="section-header">
-<h3 class="section-title">Votre Itinéraire</h3>
-<p class="section-subtitle">7 jours à travers l'Espagne centrale</p>
-</div>
-<div class="timeline">
-<div class="timeline-item">
-<div class="timeline-date">Jour 1 • Vendredi 14 avril</div>
-<div class="timeline-content">
-<p>Arrivée à Madrid. Accueil et transfert centre-ville. Déjeuner restaurant, visite guidée
-du musée du Prado, balade au parc du Retiro et quartier de la Castellana. Dîner et nuit.</p>
-<span class="timeline-location">Madrid</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 2 • Samedi 15 avril</div>
-<div class="timeline-content">
-<p>Excursion à Tolède : tour panoramique, cathédrale, synagogues Santa María la
-Blanca et del Tránsito, monastère San Juan de los Reyes, église Santo Tomé. Déjeuner local.
-Retour Madrid, dîner et nuit.</p>
-<span class="timeline-location">Madrid</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 3 • Dimanche 16 avril</div>
-<div class="timeline-content">
-<p>Madrid des Austrias, ermitage San Antonio de la Florida, déjeuner. Visite du Palais
-Royal. Transfert vers Ségovie, installation, dîner et nuit.</p>
-<span class="timeline-location">Ségovie</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 4 • Lundi 17 avril</div>
-<div class="timeline-content">
-<p>Ségovie : aqueduc romain, quartier juif, cathédrale, Alcazar, église de la Vera Cruz.
-Après-midi : jardins du palais de la Granja. Dîner et nuit.</p>
-<span class="timeline-location">Ségovie</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 5 • Mardi 18 avril</div>
-<div class="timeline-content">
-<p>Château mudéjar de Coca, forteresse de Cuéllar avec spectacle immersif. Villages
-médiévaux de Sepúlveda et Pedraza. Déjeuner. Retour Ségovie, dîner et nuit.</p>
-<span class="timeline-location">Ségovie</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 6 • Mercredi 19 avril</div>
-<div class="timeline-content">
-<p>Monastère-palais de l'Escorial. Déjeuner. Route vers Ávila : murailles, cathédrale,
-couvent Sainte Thérèse, basilique San Vicente. Installation, dîner et nuit.</p>
-<span class="timeline-location">Ávila</span>
-</div>
-</div>
-<div class="timeline-item">
-<div class="timeline-date">Jour 7 • Jeudi 20 avril</div>
-<div class="timeline-content">
-<p>Transfert vers l'aéroport de Madrid. Fin du voyage.</p>
-<span class="timeline-location">Départ</span>
-</div>
-</div>
-</div>
-</section>
-<!-- Programme Détaillé -->
-<section class="content-section">
-<div class="section-header">
-<h3 class="section-title">Programme Détaillé</h3>
-<p class="section-subtitle">Chaque jour, une nouvelle découverte</p>
-</div>
-<div class="programme-grid">
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1543340713-8a0b2cc4d3d9?q=80&w=1200&auto=for
-mat&fit=crop" alt="Madrid">
-<div class="programme-info">
-<span class="programme-day">Jour 1</span>
-<h4 class="programme-title">Arrivée à Madrid et premières découvertes</h4>
-<p class="programme-desc">Accueil à l'aéroport, transfert centre-ville et déjeuner.
-Visite guidée du prestigieux musée du Prado. Promenade au parc du Buen Retiro et dans le
-quartier de la Castellana. Dîner et nuit à Madrid.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1580674280587-bd1b0a5e5a2a?q=80&w=1200&auto=
-format&fit=crop" alt="Tolède">
-<div class="programme-info">
-<span class="programme-day">Jour 2</span>
-<h4 class="programme-title">Tolède, ville aux trois cultures</h4>
-<p class="programme-desc">Excursion complète à Tolède avec tour panoramique,
-visite de la cathédrale, des synagogues historiques, du monastère San Juan de los Reyes et de
-l'église Santo Tomé. Déjeuner local et retour à Madrid.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1491552772033-3e61a6d2b6bc?q=80&w=1200&auto=
-format&fit=crop" alt="Madrid historique">
-<div class="programme-info">
-<span class="programme-day">Jour 3</span>
-<h4 class="programme-title">Madrid des Austrias & transfert vers Ségovie</h4>
-<p class="programme-desc">Exploration du centre historique : Plaza Mayor, marché
-San Miguel, Plaza de Oriente. Visite de l'ermitage San Antonio de la Florida et du Palais Royal.
-En fin de journée, route vers Ségovie.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1501933531423-9cb1a9cba6de?q=80&w=1200&auto=
-format&fit=crop" alt="Ségovie">
-<div class="programme-info">
-<span class="programme-day">Jour 4</span>
-<h4 class="programme-title">Trésors de Ségovie & jardins de la Granja</h4>
-<p class="programme-desc">Découverte de l'aqueduc romain, du quartier juif, de la
-cathédrale gothique et de l'Alcazar. L'après-midi, visite des somptueux jardins du palais de la
-Granja de San Ildefonso.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1491554047206-0f75f1df9b52?q=80&w=1200&auto=fo
-rmat&fit=crop" alt="Villages médiévaux">
-<div class="programme-info">
-<span class="programme-day">Jour 5</span>
-<h4 class="programme-title">Villages médiévaux & châteaux</h4>
-<p class="programme-desc">Visite du château mudéjar de Coca et de la forteresse de
-Cuéllar avec spectacle immersif. Exploration des villages pittoresques de Sepúlveda et
-Pedraza. Retour à Ségovie pour la nuit.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1528909514045-2fa4ac7a08ba?q=80&w=1200&auto=f
-ormat&fit=crop" alt="L'Escorial et Ávila">
-<div class="programme-info">
-<span class="programme-day">Jour 6</span>
-<h4 class="programme-title">L'Escorial & ville fortifiée d'Ávila</h4>
-<p class="programme-desc">Visite du monastère-palais de San Lorenzo de El
-Escorial. Après le déjeuner, découverte d'Ávila avec ses murailles médiévales, sa cathédrale, le
-couvent de Sainte Thérèse et la basilique San Vicente.</p>
-</div>
-</div>
-<div class="programme-card">
-<img class="programme-image"
-src="https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?q=80&w=1200&auto=f
-ormat&fit=crop" alt="Départ">
-<div class="programme-info">
-<span class="programme-day">Jour 7</span>
-<h4 class="programme-title">Retour</h4>
-<p class="programme-desc">Temps libre selon les horaires de vol. Transfert
-accompagné vers l'aéroport de Madrid. Fin de nos services.</p>
-</div>
-</div>
-</div>
-</section>
-<!-- Services -->
-<section class="content-section">
-<div class="section-header">
-<h3 class="section-title">Détails de votre voyage</h3>
-<p class="section-subtitle">Tout ce qui est inclus dans votre forfait</p>
-</div>
-<div class="services-grid">
-<div class="service-card">
-<div class="service-header">
-Inclus dans votre voyage
-</div>
-<ul class="service-list">
-<li>Guide accompagnateur francophone</li>
-<li>Guides officiels selon programme</li>
-<li>Transferts en autocar climatisé</li>
-<li>Déjeuners et dîners avec boissons</li>
-<li>Entrées aux sites mentionnés</li>
-<li>Hébergement en hôtels 4 étoiles</li>
-<li>Petit-déjeuner quotidien</li>
-</ul>
-</div>
-<div class="service-card">
-<div class="service-header">
-Non inclus
-</div>
-<ul class="service-list excluded">
-<li>Transport avion ou train</li>
-<li>Prestations non indiquées</li>
-<li>Visites optionnelles</li>
-<li>Repas non précisés</li>
-</ul>
-</div>
-</div>
-</section>
-<!-- Hébergements -->
-<section class="content-section">
-<div class="section-header">
-<h3 class="section-title">Vos Hébergements</h3>
-<p class="section-subtitle">Sélection d'établissements de charme</p>
-</div>
-<div class="hotels-grid">
-<div class="hotel-card">
-<img class="hotel-image"
-src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de
-_2025-07-17_21-42-28_wu28bg.png" alt="Hôtel Madrid">
-<div class="hotel-info">
-<h4>Hôtel 4 étoiles - VILLA</h4>
-<p>Établissement de charme idéalement situé au cœur de Madrid, à proximité des
-principaux sites touristiques et musées.</p>
-<div class="hotel-stars">★★★★☆</div>
-</div>
-</div>
-<div class="hotel-card">
-<img class="hotel-image"
-src="https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de
-_2025-07-17_21-42-28_wu28bg.png" alt="Hôtel Madrid">
-<div class="hotel-info">
-<h4>Hôtel 4 étoiles - Madrid</h4>
-<p>Confort moderne et services de qualité, avec un accès privilégié aux transports et
-aux quartiers historiques.</p>
-<div class="hotel-stars">★★★★☆</div>
-</div>
-</div>
-</div>
-<div class="note-box">
-<p><strong>Note :</strong> Les hébergements sont sujets à disponibilité. Un
-établissement de catégorie équivalente sera proposé si nécessaire.</p>
-</div>
-</section>
-<!-- Price Info Section - Nouveau placement -->
-<section class="price-info-section">
-<div class="price-info-grid">
-<div class="price-main">
-<div class="price-label">Tarif Indicatif</div>
-<div class="price-amount">1 399 €</div>
-<div class="price-per">par personne (base 30)</div>
-</div>
-<div class="info-item">
-<h4>Durée</h4>
-<p>7 jours / 6 nuits</p>
-</div>
-<div class="info-item">
-<h4>Groupe</h4>
-<p>Base 30 personnes</p>
-</div>
-<div class="info-item">
-<h4>Période</h4>
-<p>14 - 20 avril 2025</p>
-</div>
-</div>
-</section>
-</main>
-<!-- CTA Section -->
-<section class="cta-section">
-<h2>Bon Voyage</h2>
-<p>Votre aventure espagnole vous attend</p>
-</section>
-<!-- Conditions -->
-<section class="conditions" style="display: ${data.conditions_generales ? 'block' : 'none'};">
-<h3>Conditions Générales</h3>
-<div class="conditions-content">
-<p id="conditions-text">${data.conditions_generales || ''}</p>
-</div>
-</section>
+<div class="doc">
+  <!-- Header -->
+  <div class="hero-header">
+    <div class="hero-top">
+      <div class="brand-inline">
+        <img src="${editedData.logoUrl}" alt="Logo Flowtrip">
+        <span class="brand-name">FLOWTRIP</span>
+      </div>
+      <div class="client-name">Mme Doulcet</div>
+    </div>
+    <div class="hero-content">
+      <h1>${editedData.titreVoyage}</h1>
+      <p>Programme sur mesure — ${editedData.table_itineraire_bref.length} jours</p>
+    </div>
+  </div>
+
+  <!-- Contenido Principal -->
+  <div class="main-content">
+    <!-- Vos Envies -->
+    <section class="section">
+      <h2 class="section-title">${editedData.titre_vos_envies || "VOS ENVIES"}</h2>
+      <div class="border border-gray-400 h-24 p-2">
+        ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+      </div>
+    </section>
+
+    <!-- Itinéraire -->
+    <section class="section">
+      <h2 class="section-title">${editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE"}</h2>
+      <div class="itineraire-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${editedData.titre_jour || "JOUR"}</th>
+              <th>${editedData.titre_date || "DATE"}</th>
+              <th>${editedData.titre_programme_table || "PROGRAMME"}</th>
+              <th>${editedData.titre_nuit || "NUIT"}</th>
+              <th>${editedData.titre_hotel || "HÔTEL"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(editedData.table_itineraire_bref || []).map((row, index) => `
+            <tr>
+              <td>${row.jour}</td>
+              <td>${row.date}</td>
+              <td>${row.programme}</td>
+              <td>${row.nuit}</td>
+              <td>${row.hôtel}</td>
+            </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="note-simple">
+        <strong>Personnalisation :</strong> ${editedData.personalisationText || "Ce programme peut être ajusté en fonction de vos souhaits."}
+      </div>
+    </section>
+
+    <!-- Programme détaillé -->
+    <section class="section programme-section">
+      <h2 class="section-title">${editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"}</h2>
+      <div class="programme-text">
+        ${editedData.programme_detaille || "<p>Description du programme à venir</p>"}
+      </div>
+    </section>
+
+    <!-- Services -->
+    <section class="section">
+      <h2 class="section-title">${editedData.detailVoyageTitle || "Détail de Votre Voyage"}</h2>
+      <div class="services-table">
+        <table>
+          <thead>
+            <tr>
+              <th>${editedData.titre_inclus || "INCLUS"}</th>
+              <th>${editedData.titre_non_inclus || "NON INCLUS"}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <ul class="inclus-list">
+                  ${(editedData.inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service inclus</li>'}
+                </ul>
+              </td>
+              <td>
+                <ul class="non-inclus-list">
+                  ${(editedData.non_inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service non inclus</li>'}
+                </ul>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Prix -->
+    <section class="prix-section">
+      <div class="prix-montant">${editedData.prix_par_personne || "À confirmer"}</div>
+      <div class="prix-detail">${editedData.prixDetailText || "par personne (base 30)"}</div>
+      ${editedData.chambre_simple ? `
+      <div class="chambre-simple" style="margin-top: 15px; font-size: 1rem;">
+        <strong>${editedData.titre_chambre_simple || "Chambre simple"}:</strong> ${editedData.chambre_simple}
+      </div>
+      ` : ''}
+    </section>
+
+    <!-- Hébergements -->
+    <section class="section hotels-section">
+      <h2 class="section-title">${editedData.titre_hebergements || "VOS HÉBERGEMENTS"}</h2>
+      <div class="hotels-intro">
+        <p>${editedData.hotelsIntroText || "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."}</p>
+      </div>
+      <div class="hotels-list">
+        ${editedData.hebergements_personnalises.map((hotel, index) => `
+        <div class="hotel-item">
+          <div class="hotel-name">${hotel.nom}</div>
+          <div class="hotel-description">${hotel.description}</div>
+          ${hotel.images[0] ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">` : ''}
+        </div>
+        `).join('')}
+      </div>
+      <div class="note-simple">
+        ${editedData.disponibilityText || "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."}
+      </div>
+    </section>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-section">
+    <h2>${editedData.bonVoyageTitle || "Bon Voyage !"}</h2>
+    <p>${editedData.bonVoyageText || "Votre aventure vous attend"}</p>
+  </div>
 </div>
 </body>
-</html>
+</html>`;
+
+    // Crear blob y descargar
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "voyage-plan-prev2.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  if (loading)
+    return (
+      <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded">
+        <div className="text-blue-600 font-semibold">
+          🔄 Cargando datos de Firebase...
+        </div>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="text-center py-8 bg-red-50 border border-red-200 rounded">
+        <div className="text-red-600 font-semibold">❌ Error: {error}</div>
+      </div>
+    );
+
+  if (!editedData)
+    return (
+      <div className="text-center py-8 bg-yellow-50 border border-yellow-200 rounded">
+        <div className="text-yellow-600 font-semibold">
+          ⚠ No hay datos disponibles
+        </div>
+        <div className="text-sm text-gray-500 mt-2">
+          Verificando conexión con Firebase...
+        </div>
+      </div>
+    );
+
+  if (!conversacionId && currentUser) {
+    return (
+      <div className="text-center py-8 bg-orange-50 border border-orange-200 rounded">
+        <div className="text-orange-600 font-semibold">
+          ⚠ Configuración incompleta
+        </div>
+        <div className="text-sm text-gray-500 mt-2">
+          No se pudo obtener la configuración de conversación del usuario.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="doc">
+      {/* Botones de edición/guardar en la parte superior */}
+      <div className="flex justify-between items-center mb-4 p-4 bg-gray-50 rounded-lg">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            Previsualización / Documento
+          </h1>
+          <p className="text-muted-foreground">
+            Vista previa del documento Flowtrip
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {!editing ? (
+            <Button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-2"
+            >
+              <Edit3 className="h-4 w-4" /> Editar
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <span className="animate-spin">↻</span> Guardando...
+                  </>
+                ) : (
+                  "💾 Guardar Cambios"
+                )}
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditing(false);
+                  setEditedData(data);
+                }}
+                variant="outline"
+              >
+                ❌ Cancelar
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="secondary"
+            onClick={generarPDF}
+            disabled={generatingPdf}
+          >
+            <Download className="h-4 w-4 mr-2" />{" "}
+            {generatingPdf ? "Generando PDF..." : "Descargar PDF"}
+          </Button>
+
+          <Button variant="secondary" onClick={descargarPlantillaHTML}>
+            <FileText className="h-4 w-4 mr-2" />
+            Descargar HTML
+          </Button>
+
+          <Button>
+            <Send className="h-4 w-4 mr-2" /> Enviar al cliente
+          </Button>
+        </div>
+      </div>
+
+      {/* Botón de rediseño global con IA */}
+      {editing && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">
+                Usa IA para rediseñar toda la plantilla
+              </p>
+            </div>
+            <div className="flex items-end"></div>
+          </div>
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+          ✅ Cambios guardados exitosamente en Firebase!
+        </div>
+      )}
+
+      {saveError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          ❌ {saveError}
+        </div>
+      )}
+
+      {/* Modal de IA */}
+      {showAiModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">
+              ✨ Editor IA - {activeAiSection}
+            </h3>
+            <Textarea
+              placeholder="Describe qué quieres que la IA haga con esta sección..."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              className="mb-4"
+              rows={4}
+            />
+            <div className="flex gap-2 mb-4">
+              <Button
+                onClick={() => callAI(aiPrompt, activeAiSection || undefined)}
+                disabled={aiLoading || !aiPrompt.trim()}
+                className="flex-1"
+              >
+                {aiLoading ? "🤖 Procesando..." : "✨ Aplicar con IA"}
+              </Button>
+              <Button onClick={() => setShowAiModal(false)} variant="outline">
+                ❌ Cerrar
+              </Button>
+            </div>
+            {aiResponse && (
+              <div className="mt-4 p-4 bg-gray-50 rounded">
+                <h4 className="font-semibold mb-2">Respuesta de la IA:</h4>
+                <div className="whitespace-pre-wrap text-sm">{aiResponse}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div className="hero-header">
+        <div className="hero-top">
+          <div className="brand-inline">
+            {editing ? (
+              <div className="flex items-center gap-4">
+                <div className="space-y-2">
+                  <Label className="block text-xs">URL del Logo:</Label>
+                  <Input
+                    value={editedData.logoUrl}
+                    onChange={(e) => handleChange("logoUrl", e.target.value)}
+                    className="w-48 text-sm"
+                    placeholder="https://ejemplo.com/logo.png"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="block text-xs">Nombre Marca:</Label>
+                  <Input
+                    value="FLOWTRIP"
+                    readOnly
+                    className="font-semibold w-32"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <img src={editedData.logoUrl} alt="Logo Flowtrip" />
+                <span className="brand-name">FLOWTRIP</span>
+              </>
+            )}
+          </div>
+          <div className="client-name">
+            {editing ? (
+              <Input value="Mme Doulcet" readOnly className="w-32 text-sm" />
+            ) : (
+              "Mme Doulcet"
+            )}
+          </div>
+        </div>
+        <div className="hero-content">
+          {editing ? (
+            <div className="space-y-2">
+              <Input
+                value={editedData.titreVoyage}
+                onChange={(e) => handleChange("titreVoyage", e.target.value)}
+                className="text-3xl font-bold text-center w-full bg-transparent border-none"
+                placeholder="Votre voyage avec Flowmatic"
+              />
+              <div className="flex items-center justify-center gap-2">
+                <Input
+                  value={`Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
+                  readOnly
+                  className="text-lg text-center bg-transparent border-none w-auto"
+                />
+                <Button
+                  onClick={() => openAiModal("titreVoyage")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1>{editedData.titreVoyage}</h1>
+              <p>
+                Programme sur mesure — {editedData.table_itineraire_bref.length}{" "}
+                jours
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <div className="main-content">
+        {/* Vos Envies */}
+        <section className="section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_vos_envies}
+                  onChange={(e) =>
+                    handleChange("titre_vos_envies", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("titre_vos_envies")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+                <Button
+                  onClick={() => handleChange("titre_vos_envies", "")}
+                  size="sm"
+                  variant="destructive"
+                >
+                  🗑️
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_vos_envies
+            )}
+          </h2>
+          {editing ? (
+            <div className="flex items-start gap-2">
+              <Textarea
+                value={editedData.vos_envies || ""}
+                onChange={(e) => handleChange("vos_envies", e.target.value)}
+                className="flex-1 border border-gray-400 h-24 my-3"
+                placeholder="Ajoutez vos envies ici..."
+              />
+              <Button
+                onClick={() => openAiModal("Contenu Vos Envies")}
+                variant="ghost"
+                size="sm"
+                className="text-yellow-600 hover:text-yellow-700 mt-3"
+              >
+                ✨
+              </Button>
+            </div>
+          ) : (
+            <div className="border border-gray-400 h-24 my-3 p-2">
+              {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+            </div>
+          )}
+        </section>
+
+        {/* Itinéraire */}
+        <section className="section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_itineraire_bref}
+                  onChange={(e) =>
+                    handleChange("titre_itineraire_bref", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("titre_itineraire_bref")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+                <Button
+                  onClick={() => handleChange("titre_itineraire_bref", "")}
+                  size="sm"
+                  variant="destructive"
+                >
+                  🗑️
+                </Button>
+                <Button onClick={addNewItineraryEntry} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Ajouter un jour
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_itineraire_bref
+            )}
+          </h2>
+
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="itinerary" type="itinerary">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className="itineraire-table"
+                >
+                  <table>
+                    <thead>
+                      <tr>
+                        <th></th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_jour}
+                              onChange={(e) =>
+                                handleChange("titre_jour", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_jour || "JOUR"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_date}
+                              onChange={(e) =>
+                                handleChange("titre_date", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_date || "DATE"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_programme_table}
+                              onChange={(e) =>
+                                handleChange(
+                                  "titre_programme_table",
+                                  e.target.value
+                                )
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_programme_table || "PROGRAMME"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_nuit}
+                              onChange={(e) =>
+                                handleChange("titre_nuit", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_nuit || "NUIT"
+                          )}
+                        </th>
+                        <th>
+                          {editing ? (
+                            <Input
+                              value={editedData.titre_hotel}
+                              onChange={(e) =>
+                                handleChange("titre_hotel", e.target.value)
+                              }
+                              className="font-semibold"
+                            />
+                          ) : (
+                            editedData.titre_hotel || "HÔTEL"
+                          )}
+                        </th>
+                        {editing && <th>Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editedData.table_itineraire_bref.map((row, index) => (
+                        <Draggable
+                          key={index}
+                          draggableId={index.toString()}
+                          index={index}
+                        >
+                          {(provided) => (
+                            <tr
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="border-b"
+                            >
+                              <td
+                                {...provided.dragHandleProps}
+                                className="text-center"
+                              >
+                                {editing && (
+                                  <GripVertical className="h-4 w-4 text-gray-400" />
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.jour}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "jour",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Jour`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.jour
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.date}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "date",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Date`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.date
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Textarea
+                                      value={row.programme}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "programme",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                      rows={2}
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(
+                                          `Día ${index + 1} - Programme`
+                                        )
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.programme
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.nuit}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "nuit",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Nuit`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.nuit
+                                )}
+                              </td>
+                              <td>
+                                {editing ? (
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={row.hôtel}
+                                      onChange={(e) =>
+                                        handleItineraryChange(
+                                          index,
+                                          "hôtel",
+                                          e.target.value
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <Button
+                                      onClick={() =>
+                                        openAiModal(`Día ${index + 1} - Hôtel`)
+                                      }
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-yellow-600 hover:text-yellow-700"
+                                    >
+                                      ✨
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  row.hôtel
+                                )}
+                              </td>
+                              {editing && (
+                                <td>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeItineraryEntry(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </td>
+                              )}
+                            </tr>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+
+          <div className="note-simple">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <strong>Personnalisation :</strong>
+                <Input
+                  value="Ce programme peut être ajusté en fonction de vos souhaits."
+                  onChange={(e) =>
+                    handleChange("personalisationText", e.target.value)
+                  }
+                  className="flex-1"
+                  placeholder="Ce programme peut être ajusté en fonction de vos souhaits."
+                />
+                <Button
+                  onClick={() => openAiModal("Personnalisation")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              <>
+                <strong>Personnalisation :</strong>{" "}
+                {editedData.personalisationText ||
+                  "Ce programme peut être ajusté en fonction de vos souhaits."}
+              </>
+            )}
+          </div>
+        </section>
+
+        {/* Programme détaillé */}
+        <section className="section programme-section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_programme_detaille}
+                  onChange={(e) =>
+                    handleChange("titre_programme_detaille", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("titre_programme_detaille")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+                <Button
+                  onClick={() => handleChange("titre_programme_detaille", "")}
+                  size="sm"
+                  variant="destructive"
+                >
+                  🗑️
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_programme_detaille
+            )}
+          </h2>
+          {editing ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Label>Contenido del programa:</Label>
+                <Button
+                  onClick={() => openAiModal("programme_detaille")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨ IA
+                </Button>
+              </div>
+              <ReactQuill
+                ref={quillRef}
+                value={editedData.programme_detaille}
+                onChange={(value) => handleChange("programme_detaille", value)}
+                modules={quillModules}
+                formats={quillFormats}
+                theme="snow"
+              />
+            </div>
+          ) : (
+            <div
+              className="programme-text"
+              dangerouslySetInnerHTML={{
+                __html: editedData.programme_detaille,
+              }}
+            />
+          )}
+        </section>
+
+        {/* Services */}
+        <section className="section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value="Détail de Votre Voyage"
+                  onChange={(e) =>
+                    handleChange("detailVoyageTitle", e.target.value)
+                  }
+                  className="text-2xl font-bold"
+                  placeholder="Détail de Votre Voyage"
+                />
+                <Button
+                  onClick={() => openAiModal("Détail de Votre Voyage")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              editedData.detailVoyageTitle || "Détail de Votre Voyage"
+            )}
+          </h2>
+          <div className="services-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>
+                    {editing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editedData.titre_inclus}
+                          onChange={(e) =>
+                            handleChange("titre_inclus", e.target.value)
+                          }
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => openAiModal("titre_inclus")}
+                          size="sm"
+                          variant="outline"
+                        >
+                          ✨
+                        </Button>
+                        <Button
+                          onClick={() => handleChange("titre_inclus", "")}
+                          size="sm"
+                          variant="destructive"
+                        >
+                          🗑️
+                        </Button>
+                      </div>
+                    ) : (
+                      editedData.titre_inclus
+                    )}
+                  </th>
+                  <th>
+                    {editing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editedData.titre_non_inclus}
+                          onChange={(e) =>
+                            handleChange("titre_non_inclus", e.target.value)
+                          }
+                          className="flex-1"
+                        />
+                        <Button
+                          onClick={() => openAiModal("titre_non_inclus")}
+                          size="sm"
+                          variant="outline"
+                        >
+                          ✨
+                        </Button>
+                        <Button
+                          onClick={() => handleChange("titre_non_inclus", "")}
+                          size="sm"
+                          variant="destructive"
+                        >
+                          🗑️
+                        </Button>
+                      </div>
+                    ) : (
+                      editedData.titre_non_inclus
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <ul className="inclus-list">
+                      {editedData.inclus.map((item, index) => (
+                        <li key={index}>
+                          {editing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={item}
+                                onChange={(e) =>
+                                  handleListItemChange(
+                                    "inclus",
+                                    index,
+                                    e.target.value
+                                  )
+                                }
+                                className="flex-1"
+                              />
+                              <Button
+                                onClick={() => openAiModal(`inclus_${index}`)}
+                                size="sm"
+                                variant="outline"
+                              >
+                                ✨
+                              </Button>
+                              <Button
+                                onClick={() => removeListItem("inclus", index)}
+                                size="sm"
+                                variant="destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            item
+                          )}
+                        </li>
+                      ))}
+                      {editing && (
+                        <li>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => addNewListItem("inclus")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => openAiModal("inclus")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              ✨ IA
+                            </Button>
+                          </div>
+                        </li>
+                      )}
+                    </ul>
+                  </td>
+                  <td>
+                    <ul className="non-inclus-list">
+                      {editedData.non_inclus.map((item, index) => (
+                        <li key={index}>
+                          {editing ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={item}
+                                onChange={(e) =>
+                                  handleListItemChange(
+                                    "non_inclus",
+                                    index,
+                                    e.target.value
+                                  )
+                                }
+                                className="flex-1"
+                              />
+                              <Button
+                                onClick={() =>
+                                  openAiModal(`non_inclus_${index}`)
+                                }
+                                size="sm"
+                                variant="outline"
+                              >
+                                ✨
+                              </Button>
+                              <Button
+                                onClick={() =>
+                                  removeListItem("non_inclus", index)
+                                }
+                                size="sm"
+                                variant="destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            item
+                          )}
+                        </li>
+                      ))}
+                      {editing && (
+                        <li>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => addNewListItem("non_inclus")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              onClick={() => openAiModal("non_inclus")}
+                              size="sm"
+                              variant="outline"
+                            >
+                              ✨ IA
+                            </Button>
+                          </div>
+                        </li>
+                      )}
+                    </ul>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Prix */}
+        <section className="prix-section">
+          <div className="prix-montant">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.prix_par_personne}
+                  onChange={(e) =>
+                    handleChange("prix_par_personne", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("prix_par_personne")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              editedData.prix_par_personne
+            )}
+          </div>
+          <div className="prix-detail">
+            {editing ? (
+              <Input
+                value="par personne (base 30)"
+                onChange={(e) => handleChange("prixDetailText", e.target.value)}
+                className="text-center bg-transparent border-none"
+                placeholder="par personne (base 30)"
+              />
+            ) : (
+              editedData.prixDetailText || "par personne (base 30)"
+            )}
+          </div>
+        </section>
+
+        {/* Hébergements */}
+        <section className="section hotels-section">
+          <h2 className="section-title">
+            {editing ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedData.titre_hebergements}
+                  onChange={(e) =>
+                    handleChange("titre_hebergements", e.target.value)
+                  }
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => openAiModal("titre_hebergements")}
+                  size="sm"
+                  variant="outline"
+                >
+                  ✨
+                </Button>
+                <Button
+                  onClick={() => handleChange("titre_hebergements", "")}
+                  size="sm"
+                  variant="destructive"
+                >
+                  🗑️
+                </Button>
+              </div>
+            ) : (
+              editedData.titre_hebergements
+            )}
+          </h2>
+          <div className="hotels-intro">
+            {editing ? (
+              <Textarea
+                value="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+                onChange={(e) =>
+                  handleChange("hotelsIntroText", e.target.value)
+                }
+                className="w-full text-center"
+                rows={2}
+                placeholder="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+              />
+            ) : (
+              <p>
+                {editedData.hotelsIntroText ||
+                  "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."}
+              </p>
+            )}
+          </div>
+          <div className="hotels-list">
+            {editedData.hebergements_personnalises.map((hotel, index) => (
+              <div key={index} className="hotel-item">
+                <div className="hotel-name">{hotel.nom}</div>
+                <div className="hotel-description">{hotel.description}</div>
+                {hotel.images[0] && (
+                  <img
+                    src={hotel.images[0]}
+                    alt={hotel.nom}
+                    className="hotel-image"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="note-simple">
+            {editing ? (
+              <Textarea
+                value="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+                onChange={(e) =>
+                  handleChange("disponibilityText", e.target.value)
+                }
+                className="w-full"
+                rows={2}
+                placeholder="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+              />
+            ) : (
+              editedData.disponibilityText ||
+              "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Footer */}
+      <div className="footer-section">
+        {editing ? (
+          <div className="space-y-4 text-center">
+            <Input
+              value="Bon Voyage !"
+              onChange={(e) => handleChange("bonVoyageTitle", e.target.value)}
+              className="text-3xl font-bold text-center"
+              placeholder="Bon Voyage !"
+            />
+            <Textarea
+              value="Votre aventure vous attend"
+              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+              className="text-lg text-center bg-transparent border-none"
+              rows={2}
+              placeholder="Votre aventure vous attend"
+            />
+          </div>
+        ) : (
+          <>
+            <h2>Bon Voyage !</h2>
+            <p>{editedData.bonVoyageText || "Votre aventure vous attend"}</p>
+          </>
+        )}
+      </div>
+
+      {/* Modal para agregar imagen */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
+            <Input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.jpg"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                Agregar Imagen
+              </Button>
+              <Button
+                onClick={() => setShowImageModal(false)}
+                variant="outline"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para agregar enlace */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
+            <Input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://ejemplo.com"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                Agregar Enlace
+              </Button>
+              <Button onClick={() => setShowLinkModal(false)} variant="outline">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Previa2;
+
+/* SUMMARY
+- Reemplacé JSX por estructura HTML con clases y semántica fiel al diseño.
+- class → className, for → htmlFor.
+- Integrado dinámicamente: titreVoyage, pays_destination, prix_par_personne, table_itineraire_bref, inclus, non_inclus, programme_detaille, hebergements_personnalises.
+- TODO: revisar si en “Programme détaillé” se requiere añadir loop como en HTML o mantener Quill content.
+*/
+
+
+
+
+
+import React, { useState, useRef } from "react";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  DropResult,
+} from "@hello-pangea/dnd";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Edit3,
+  Trash2,
+  Plus,
+  GripVertical,
+  Palette,
+  Image as ImageIcon,
+  Download,
+  Send,
+  FileText,
+} from "lucide-react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
+import "./proposition.css"; // CSS del template
+
+interface ItineraryEntry {
+  jour: string;
+  date: string;
+  programme: string;
+  nuit: string;
+  hôtel: string;
+}
+
+interface HotelInfo {
+  nom: string;
+  description: string;
+  images: string[];
+}
+
+export interface VoyageData {
+  programme_detaille: string;
+  table_itineraire_bref: ItineraryEntry[];
+  prix_par_personne: string;
+  chambre_simple: string;
+  remarques_tarifs: string;
+  inclus: string[];
+  non_inclus: string[];
+  pays_destination: string;
+  themeColor: string;
+  titreVoyage: string;
+  logoUrl: string;
+  imageProgrammeUrl: string;
+  bonVoyageText: string;
+  vos_envies: string;
+  note_hebergement: string;
+  note_programme: string;
+  intro_hebergements: string;
+  titre_vos_envies: string;
+  titre_itineraire_bref: string;
+  titre_programme_detaille: string;
+  titre_inclus: string;
+  titre_non_inclus: string;
+  titre_hebergements: string;
+  titre_immersion: string;
+  titre_tarif: string;
+  titre_chambre_simple: string;
+  titre_remarques: string;
+  titre_jour: string;
+  titre_date: string;
+  titre_programme_table: string;
+  titre_nuit: string;
+  titre_hotel: string;
+  hebergements_personnalises: HotelInfo[];
+  conditions_generales?: string;
+  client_name?: string;
+}
+
+interface PreviaProps {
+  data: VoyageData | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const Previa3 = ({ data, loading, error }: PreviaProps) => {
+  const { currentUser } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [editedData, setEditedData] = useState<VoyageData | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [activeHotelIndex, setActiveHotelIndex] = useState<number | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [hotelImages, setHotelImages] = useState<{ [key: string]: string }>({});
+  const [conversacionId, setConversacionId] = useState<string | null>(null);
+  // Estados para la funcionalidad de IA granular
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+
+  // Estados para manejo de imágenes y enlaces en ReactQuill
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const quillRef = useRef<ReactQuill>(null);
+
+  // Función para obtener el ID de conversación desde el perfil del usuario
+  const obtenerConversacionId = async (uid: string): Promise<string | null> => {
+    try {
+      const perfilDocRef = doc(db, "users", uid, "perfil", "empresa");
+      const perfilSnap = await getDoc(perfilDocRef);
+
+      if (perfilSnap.exists()) {
+        const data = perfilSnap.data();
+        return data?.conexionesIA?.conversacion || null;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error obteniendo ID de conversación:", error);
+      return null;
+    }
+  };
+
+  // Función para llamar a la API de IA (DeepSeek)
+  const callAI = async (prompt: string, section?: string) => {
+    if (!editedData || !prompt.trim()) return;
+
+    setAiLoading(true);
+    setAiResponse(null);
+
+    // Verificar que la API key esté configurada
+    const apiKey =
+      import.meta.env.VITE_DEEPSEEK_API_KEY ||
+      import.meta.env.VITE_OPENAI_API_KEY;
+    const apiUrl =
+      import.meta.env.VITE_DEEPSEEK_API_URL ||
+      "https://api.deepseek.com/v1/chat/completions";
+
+    if (!apiKey) {
+      setAiResponse(
+        "❌ Error: API key no configurada. Verifica tu archivo .env"
+      );
+      setAiLoading(false);
+      return;
+    }
+
+    try {
+      const systemPrompt = `Eres un editor inteligente especializado en documentos de viaje. Tu función es modificar, enriquecer, traducir, reorganizar o rediseñar el contenido del documento según las instrucciones del usuario.
+
+REGLAS IMPORTANTES:
+1. SIEMPRE responde en el idioma solicitado por el usuario
+2. Para descripciones → da 3 opciones diferentes
+3. Para cambios visuales → devuelve JSON con estilos sugeridos
+4. Para eliminación/movimiento → devuelve JSON actualizado
+5. NUNCA elimines información crítica (fechas, precios, contactos)
+6. Mantén la estructura JSON de VoyageData
+7. Si el usuario pide eliminar una sección, devuelve JSON con esa sección vacía o eliminada
+8. Para rediseño completo de plantilla, puedes modificar:
+   - themeColor (colores del tema)
+   - Estilos de imágenes (tamaños, centrado, etc.)
+   - Tipografía y disposición
+   - Paletas de colores
+   - Estilos visuales generales
+
+FORMATO DE RESPUESTA:
+- Explicación breve para el usuario
+- Resultado aplicable (texto o JSON según el caso)
+
+${section ? `SECCIÓN ESPECÍFICA A MODIFICAR: ${section}` : ""}
+
+DATOS ACTUALES DEL DOCUMENTO:
+${JSON.stringify(editedData, null, 2)}`;
+
+      const response = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat", // Modelo de DeepSeek
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error de API:", response.status, errorText);
+        throw new Error(`Error de API: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const aiResponse = data.choices[0]?.message?.content;
+
+      if (aiResponse) {
+        setAiResponse(aiResponse);
+
+        // Intentar parsear si es JSON
+        try {
+          const parsedResponse = JSON.parse(aiResponse);
+          if (parsedResponse && typeof parsedResponse === "object") {
+            // Aplicar cambios automáticamente si es JSON válido
+            setEditedData({
+              ...editedData,
+              ...parsedResponse,
+            });
+          }
+        } catch (e) {
+          // Si no es JSON, solo mostrar la respuesta
+          console.log("Respuesta de IA (no JSON):", aiResponse);
+        }
+      }
+    } catch (error) {
+      console.error("Error detallado llamando a la IA:", error);
+
+      // Manejo de errores específicos
+      if (error.message.includes("401")) {
+        setAiResponse(
+          "❌ Error 401: API key inválida o expirada. Verifica tu clave de DeepSeek."
+        );
+      } else if (error.message.includes("429")) {
+        setAiResponse("❌ Error 429: Límite de tasa excedido o sin créditos.");
+      } else if (error.message.includes("Failed to fetch")) {
+        setAiResponse(
+          "❌ Error de conexión: No se pudo conectar a la API de DeepSeek."
+        );
+      } else {
+        setAiResponse("❌ Error al procesar la solicitud: " + error.message);
+      }
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // Función para abrir el modal de IA para una sección específica
+  const openAiModal = (section: string) => {
+    setActiveAiSection(section);
+    setShowAiModal(true);
+    setAiPrompt("");
+    setAiResponse(null);
+  };
+
+  // Inicializar datos editados cuando los datos llegan
+  React.useEffect(() => {
+    if (data && !editedData) {
+      setEditedData({
+        titreVoyage: "Votre voyage avec Néogusto",
+        logoUrl:
+          "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752805614/Captura_de_pantalla_de_2025-07-17_21-14-15_za6iuo.png",
+        imageProgrammeUrl:
+          "https://www.vinccihoteles.com/media/uploads/cms_apps/imagenes/disposicion-articulos-viaje-angulo-alto.jpg?q=pr:sharp/rs:fill/w:900/h:500/g:ce/f:jpg",
+        bonVoyageText: "BON VOYAGE !",
+        vos_envies: "",
+        note_hebergement:
+          "NOTE : Les hébergements proposés sont sujets à disponibilité au moment de la réservation.",
+        note_programme:
+          "Le programme a été établi sur la base de nos derniers échanges et peut être adapté selon vos souhaits.",
+        intro_hebergements:
+          "Hébergements sélectionnés pour leur confort, charme et localisation.",
+        // Valores por defecto para los títulos
+        titre_vos_envies: "VOS ENVIES",
+        titre_itineraire_bref: "VOTRE ITINÉRAIRE EN BREF",
+        titre_programme_detaille: "PROGRAMME DÉTAILLÉ",
+        titre_inclus: "INCLUS",
+        titre_non_inclus: "NON INCLUS",
+        titre_hebergements: "VOS HÉBERGEMENTS",
+        titre_immersion: "Immersion au",
+        // Valores por defecto para textos de tarifas
+        titre_tarif: "TARIF par personne",
+        titre_chambre_simple: "Chambre simple",
+        titre_remarques: "Remarques",
+        // Valores por defecto para encabezados de tabla
+        titre_jour: "JOUR",
+        titre_date: "DATE",
+        titre_programme_table: "PROGRAMME",
+        titre_nuit: "NUIT",
+        titre_hotel: "HÔTEL",
+        // Hoteles personalizados
+        hebergements_personnalises: [],
+        ...data,
+        themeColor: data.themeColor || "#3b82f6",
+      });
+    }
+  }, [data]);
+
+  // Obtener el ID de conversación cuando el usuario esté autenticado
+  React.useEffect(() => {
+    const cargarConversacionId = async () => {
+      if (currentUser?.uid) {
+        const id = await obtenerConversacionId(currentUser.uid);
+        setConversacionId(id);
+      }
+    };
+
+    cargarConversacionId();
+  }, [currentUser]);
+
+  const extractHotels = (): HotelInfo[] => {
+    if (!editedData?.table_itineraire_bref) return [];
+
+    const seen = new Set<string>();
+    return editedData.table_itineraire_bref
+      .filter(
+        (entry) =>
+          entry.hôtel && !seen.has(entry.hôtel) && seen.add(entry.hôtel)
+      )
+      .map((entry) => ({
+        nom: entry.hôtel,
+        description: `Nuit à ${entry.nuit || "emplacement inconnu"}`,
+        images: [],
+      }));
+  };
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination || !editedData) return;
+
+    // Reordenar itinerario
+    if (result.type === "itinerary") {
+      const items = Array.from(editedData.table_itineraire_bref);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        table_itineraire_bref: items,
+      });
+    }
+    // Reordenar listas (inclus, non_inclus)
+    else if (result.type === "inclus" || result.type === "non_inclus") {
+      const field = result.type;
+      const items = Array.from(editedData[field] as string[]);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        [field]: items,
+      });
+    }
+    // Reordenar hoteles personalizados
+    else if (result.type === "hebergements_personnalises") {
+      const items = Array.from(editedData.hebergements_personnalises || []);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: items,
+      });
+    }
+  };
+
+  const quillModules = {
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      },
+    },
+  };
+
+  const quillFormats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "list",
+    "bullet",
+    "link",
+    "image",
+  ];
+
+  const handleChange = (field: keyof VoyageData, value: string) => {
+    if (!editedData) return;
+
+    setEditedData({
+      ...editedData,
+      [field]: value,
+    });
+  };
+
+  const handleArrayChange = (field: keyof VoyageData, value: string) => {
+    if (!editedData) return;
+
+    const arrayValue = value.split("\n").filter((item) => item.trim() !== "");
+    setEditedData({
+      ...editedData,
+      [field]: arrayValue,
+    });
+  };
+
+  const handleItineraryChange = (
+    index: number,
+    field: keyof ItineraryEntry,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedItinerary = [...editedData.table_itineraire_bref];
+    updatedItinerary[index] = {
+      ...updatedItinerary[index],
+      [field]: value,
+    };
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: updatedItinerary,
+    });
+  };
+
+  const addNewItineraryEntry = () => {
+    if (!editedData) return;
+
+    const newEntry: ItineraryEntry = {
+      jour: "",
+      date: "",
+      programme: "",
+      nuit: "",
+      hôtel: "",
+    };
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: [...editedData.table_itineraire_bref, newEntry],
+    });
+  };
+
+  const removeItineraryEntry = (index: number) => {
+    if (!editedData) return;
+
+    const updatedItinerary = [...editedData.table_itineraire_bref];
+    updatedItinerary.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      table_itineraire_bref: updatedItinerary,
+    });
+  };
+
+  const addNewListItem = (field: "inclus" | "non_inclus") => {
+    if (!editedData) return;
+
+    const currentList = editedData[field] || [];
+    setEditedData({
+      ...editedData,
+      [field]: [...currentList, ""],
+    });
+  };
+
+  const removeListItem = (field: "inclus" | "non_inclus", index: number) => {
+    if (!editedData) return;
+
+    const currentList = editedData[field] || [];
+    const updatedList = [...currentList];
+
+    updatedList.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      [field]: updatedList,
+    });
+  };
+
+  const handleListItemChange = (
+    field: "inclus" | "non_inclus",
+    index: number,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedList = [...editedData[field]];
+    updatedList[index] = value;
+
+    setEditedData({
+      ...editedData,
+      [field]: updatedList,
+    });
+  };
+
+  const addImageToHotel = (hotelIndex: number) => {
+    if (!editedData || !newImageUrl.trim()) return;
+
+    const hotels = extractHotels();
+    if (hotelIndex >= hotels.length) return;
+
+    // Actualizar el estado para incluir la nueva imagen
+    const hotelName = hotels[hotelIndex].nom;
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+
+    // Buscar el hotel por nombre y añadir la imagen
+    const hotelIndexInPersonalized = updatedHotels.findIndex(
+      (hotel) => hotel.nom === hotelName
+    );
+
+    if (hotelIndexInPersonalized !== -1) {
+      const currentImages =
+        updatedHotels[hotelIndexInPersonalized].images || [];
+      updatedHotels[hotelIndexInPersonalized] = {
+        ...updatedHotels[hotelIndexInPersonalized],
+        images: [...currentImages, newImageUrl.trim()],
+      };
+
+      setEditedData({
+        ...editedData,
+        hebergements_personnalises: updatedHotels,
+      });
+    }
+
+    setNewImageUrl("");
+  };
+
+  const addNewHotelPersonnalise = () => {
+    if (!editedData) return;
+
+    const newHotel: HotelInfo = {
+      nom: "Nouvel hôtel",
+      description: "Description de l'hôtel",
+      images: [],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: [
+        ...(editedData.hebergements_personnalises || []),
+        newHotel,
+      ],
+    });
+  };
+
+  const removeHotelPersonnalise = (index: number) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels.splice(index, 1);
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const handleHotelPersonnaliseChange = (
+    index: number,
+    field: keyof HotelInfo,
+    value: string
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    updatedHotels[index] = {
+      ...updatedHotels[index],
+      [field]: value,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const addImageToHotelPersonnalise = (
+    hotelIndex: number,
+    imageUrl: string
+  ) => {
+    if (!editedData || !imageUrl.trim()) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const currentImages = updatedHotels[hotelIndex].images || [];
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: [...currentImages, imageUrl.trim()],
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  const removeImageFromHotelPersonnalise = (
+    hotelIndex: number,
+    imageIndex: number
+  ) => {
+    if (!editedData) return;
+
+    const updatedHotels = [...(editedData.hebergements_personnalises || [])];
+    const updatedImages = [...updatedHotels[hotelIndex].images];
+    updatedImages.splice(imageIndex, 1);
+
+    updatedHotels[hotelIndex] = {
+      ...updatedHotels[hotelIndex],
+      images: updatedImages,
+    };
+
+    setEditedData({
+      ...editedData,
+      hebergements_personnalises: updatedHotels,
+    });
+  };
+
+  // Función para agregar imagen desde el modal
+  const handleAddImage = () => {
+    if (imageUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.insertEmbed(range.index, "image", imageUrl);
+        setShowImageModal(false);
+        setImageUrl("");
+      }
+    }
+  };
+
+  // Función para agregar enlace desde el modal
+  const handleAddLink = () => {
+    if (linkUrl && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection();
+      if (range) {
+        quill.formatText(range.index, range.length, "link", linkUrl);
+        setShowLinkModal(false);
+        setLinkUrl("");
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    if (!editedData) return;
+
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    try {
+      // Verificar que tenemos el ID de conversación
+      if (!conversacionId) {
+        throw new Error("No se pudo obtener el ID de conversación del usuario");
+      }
+
+      const docRef = doc(db, "conversacion", conversacionId);
+      await updateDoc(docRef, {
+        output: editedData,
+      });
+
+      setSaveSuccess(true);
+
+      setTimeout(() => setSaveSuccess(false), 3000);
+      setEditing(false);
+    } catch (error) {
+      console.error("Error saving data:", error);
+      setSaveError("Error al guardar los cambios. Intente nuevamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const generarPDF = async () => {
+    if (!editedData) return;
+
+    setGeneratingPdf(true);
+    try {
+      const response = await fetch("http://38.242.224.81:3000/generar-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(editedData),
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Error del servidor: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "voyage-plan.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      setSaveError(
+        `Error de conexión: No se pudo conectar al servidor. Verifica que el servidor esté ejecutándose en http://38.242.224.81:3000`
+      );
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  // Función para descargar la plantilla HTML directamente desde el frontend
+  const descargarPlantillaHTML = () => {
+    if (!editedData) return;
+
+    // Crear el contenido HTML basado en la plantilla existente
+    const htmlContent = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
+<style>
+/* Estilos CSS para la plantilla Previa3 */
+.document {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #fff;
+  color: #0f172a;
+  line-height: 1.6;
+  font-size: 15px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.cover {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.cover-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.brand img {
+  height: 50px;
+  filter: brightness(0) invert(1);
+}
+
+.brand h3 {
+  font-size: 1.8rem;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.brand p {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin: 0;
+}
+
+.ref {
+  text-align: right;
+}
+
+.ref div:first-child {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.ref div:last-child {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.cover h1 {
+  font-size: 3.5rem;
+  font-weight: 200;
+  margin: 0;
+  letter-spacing: -1px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 40px;
+  padding: 40px;
+}
+
+.sidebar {
+  background: #f8fafc;
+  padding: 30px;
+  border-radius: 15px;
+  height: fit-content;
+}
+
+.side-block {
+  margin-bottom: 30px;
+}
+
+.side-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 15px;
+  color: #374151;
+}
+
+.pill {
+  background: #667eea;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: inline-block;
+  font-size: 0.9rem;
+}
+
+.price-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.price-main {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 5px;
+}
+
+.price-sub {
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.content {
+  padding: 0;
+}
+
+.section {
+  margin-bottom: 50px;
+}
+
+.sec-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.sec-title {
+  font-size: 1.8rem;
+  font-weight: 300;
+  color: #0f172a;
+  margin: 0;
+}
+
+.badge {
+  background: #667eea;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 15px;
+  font-size: 0.9rem;
+}
+
+.timeline {
+  border-left: 2px solid #667eea;
+  padding-left: 20px;
+  margin-left: 10px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 20px;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.row::before {
+  content: '';
+  position: absolute;
+  left: -26px;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  background: #667eea;
+  border-radius: 50%;
+}
+
+.t-jour {
+  font-weight: 600;
+  color: #667eea;
+  min-width: 200px;
+}
+
+.t-program p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.t-nuit {
+  font-style: italic;
+  color: #6b7280;
+  min-width: 100px;
+}
+
+.prog-body {
+  line-height: 1.8;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.card {
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card-head {
+  padding: 20px;
+  color: white;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.card-head.green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.card-head.red {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.list-clean {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.list-clean li {
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+  position: relative;
+  padding-left: 30px;
+}
+
+.list-clean li:last-child {
+  border-bottom: none;
+}
+
+.list-clean li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #10b981;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.list-clean.neg li::before {
+  content: '✗';
+  color: #ef4444;
+}
+
+.hotels-intro {
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+.hotels-list {
+  display: grid;
+  gap: 20px;
+}
+
+.hotel-item {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.hotel-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #0f172a;
+}
+
+.hotel-description {
+  color: #6b7280;
+  margin-bottom: 15px;
+}
+
+.hotel-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.note-box {
+  background: #f8fafc;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 30px;
+  font-size: 0.9rem;
+  color: #6b7280;
+}
+
+.cta {
+  text-align: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  margin-top: 60px;
+}
+
+.cta h2 {
+  font-size: 2.5rem;
+  font-weight: 200;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.cta p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 20px;
+  }
+  
+  .cover h1 {
+    font-size: 2rem;
+  }
+  
+  .grid-2 {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .cta h2 {
+    font-size: 2rem;
+  }
+}
+</style>
+</head>
+<body>
+<div class="document">
+  <!-- Header -->
+  <section class="cover">
+    <div class="cover-top">
+      <div class="brand">
+        <img src="${editedData.logoUrl}" alt="Logo Flowtrip">
+        <div>
+          <h3>FLOWTRIP</h3>
+          <p>Voyages d'Exception</p>
+        </div>
+      </div>
+      <div class="ref">
+        <div>Proposition de Voyage</div>
+        <div>Référence: FLO-2025-001</div>
+      </div>
+    </div>
+    <h1>${editedData.titreVoyage}</h1>
+  </section>
+
+  <!-- Contenido Principal -->
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="side-block">
+        <div class="side-title">Destination</div>
+        <div class="pill">${editedData.pays_destination}</div>
+      </div>
+      <div class="side-block">
+        <div class="side-title">Tarif indicatif</div>
+        <div class="price-card">
+          <div class="price-main">${editedData.prix_par_personne}</div>
+          <div class="price-sub">par personne</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <!-- Vos Envies -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_vos_envies || "VOS ENVIES"}</div>
+        </div>
+        <div class="border border-gray-400 h-24 my-3 p-2">
+          ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+        </div>
+      </section>
+
+      <!-- Itinéraire en bref -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE EN BREF"}</div>
+          <span class="badge">${editedData.table_itineraire_bref.length} jours</span>
+        </div>
+        <div class="timeline">
+          ${(editedData.table_itineraire_bref || []).map((row, index) => `
+          <div class="row">
+            <div class="t-jour">${row.jour} · ${row.date}</div>
+            <div class="t-program"><p>${row.programme}</p></div>
+            <div class="t-nuit">${row.nuit}</div>
+          </div>
+          `).join('')}
+        </div>
+      </section>
+
+      <!-- Programme détaillé -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"}</div>
+        </div>
+        <div class="prog-body">
+          ${editedData.programme_detaille || "<p>Description du programme à venir</p>"}
+        </div>
+      </section>
+
+      <!-- Détails / Services -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">Détails de votre voyage</div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head green">${editedData.titre_inclus || "INCLUS"}</div>
+            <div class="card-body">
+              <ul class="list-clean">
+                ${(editedData.inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service inclus</li>'}
+              </ul>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head red">${editedData.titre_non_inclus || "NON INCLUS"}</div>
+            <div class="card-body">
+              <ul class="list-clean neg">
+                ${(editedData.non_inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service non inclus</li>'}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hébergements personnalisés -->
+      <section class="section">
+        <div class="sec-head">
+          <div class="sec-title">${editedData.titre_hebergements || "VOS HÉBERGEMENTS"}</div>
+        </div>
+        <div class="hotels-intro">
+          <p>${editedData.intro_hebergements || "Hébergements sélectionnés pour leur confort, charme et localisation."}</p>
+        </div>
+        <div class="hotels-list">
+          ${(editedData.hebergements_personnalises || []).map((hotel, index) => `
+          <div class="hotel-item">
+            <div class="hotel-name">${hotel.nom}</div>
+            <div class="hotel-description">${hotel.description}</div>
+            ${hotel.images[0] ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">` : ''}
+          </div>
+          `).join('')}
+        </div>
+        <div class="note-box">
+          <p><strong>NOTE :</strong> ${editedData.note_hebergement || "Les hébergements proposés sont sujets à disponibilité au moment de la réservation."}</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- CTA -->
+  <section class="cta">
+    <h2>Bon voyage</h2>
+    <p>${editedData.bonVoyageText || "Votre aventure espagnole vous attend"}</p>
+  </section>
+</div>
+</body>
+</html>`;
+
+    // Crear blob y descargar
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "voyage-plan-prev3.html";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  if (loading)
+    return (
+      <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded">
+        <div className="text-blue-600 font-semibold">
+          🔄 Cargando datos de Firebase...
+        </div>
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="text-center py-8 bg-red-50 border border-red-200 rounded">
+        <div className="text-red-600 font-semibold">❌ Error: {error}</div>
+      </div>
+    );
+
+  if (!editedData)
+    return (
+      <div className="text-center py-8 bg-yellow-50 border border-yellow-200 rounded">
+        <div className="text-yellow-600 font-semibold">
+          ⚠ No hay datos disponibles
+        </div>
+        <div className="text-sm text-gray-500 mt-2">
+          Verificando conexión con Firebase...
+        </div>
+      </div>
+    );
+
+  return (
+    <div className="document">
+      {/* Botones de edición/guardar en la parte superior */}
+      <div className="flex justify-between items-center mb-4 p-4 bg-gray-50 rounded-lg">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            Previsualización / Documento
+          </h1>
+          <p className="text-muted-foreground">
+            Vista previa del documento Flowtrip
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {!editing ? (
+            <Button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-2"
+            >
+              <Edit3 className="h-4 w-4" /> Editar
+            </Button>
+          ) : (
+            <>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <span className="animate-spin">↻</span> Guardando...
+                  </>
+                ) : (
+                  "💾 Guardar Cambios"
+                )}
+              </Button>
+              <Button
+                onClick={() => {
+                  setEditing(false);
+                  setEditedData(data);
+                }}
+                variant="outline"
+              >
+                ❌ Cancelar
+              </Button>
+            </>
+          )}
+
+          <Button
+            variant="secondary"
+            onClick={generarPDF}
+            disabled={generatingPdf}
+          >
+            <Download className="h-4 w-4 mr-2" />{" "}
+            {generatingPdf ? "Generando PDF..." : "Descargar PDF"}
+          </Button>
+
+          <Button variant="secondary" onClick={descargarPlantillaHTML}>
+            <FileText className="h-4 w-4 mr-2" />
+            Descargar HTML
+          </Button>
+
+          <Button>
+            <Send className="h-4 w-4 mr-2" /> Enviar al cliente
+          </Button>
+        </div>
+      </div>
+
+      {/* Botón de rediseño global con IA */}
+      {editing && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-end"></div>
+          </div>
+        </div>
+      )}
+
+      {saveSuccess && (
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded">
+          ✅ Cambios guardados exitosamente en Firebase!
+        </div>
+      )}
+
+      {saveError && (
+        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
+          ❌ {saveError}
+        </div>
+      )}
+
+      {/* Modal de IA */}
+      {showAiModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">
+              ✨ Editor IA - {activeAiSection}
+            </h3>
+            <Textarea
+              placeholder="Describe qué quieres que la IA haga con esta sección..."
+              value={aiPrompt}
+              onChange={(e) => setAiPrompt(e.target.value)}
+              className="mb-4"
+              rows={4}
+            />
+            <div className="flex gap-2 mb-4">
+              <Button
+                onClick={() => callAI(aiPrompt, activeAiSection || undefined)}
+                disabled={aiLoading || !aiPrompt.trim()}
+                className="flex-1"
+              >
+                {aiLoading ? "🤖 Procesando..." : "✨ Aplicar con IA"}
+              </Button>
+              <Button onClick={() => setShowAiModal(false)} variant="outline">
+                ❌ Cerrar
+              </Button>
+            </div>
+            {aiResponse && (
+              <div className="mt-4 p-4 bg-gray-50 rounded">
+                <h4 className="font-semibold mb-2">Respuesta de la IA:</h4>
+                <div className="whitespace-pre-wrap text-sm">{aiResponse}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <section className="cover">
+        <div className="cover-top">
+          <div className="brand">
+            {editing ? (
+              <div className="space-y-2">
+                <Label className="block">URL del Logo:</Label>
+                <Input
+                  value={editedData.logoUrl}
+                  onChange={(e) => handleChange("logoUrl", e.target.value)}
+                  className="w-full"
+                  placeholder="https://ejemplo.com/logo.png"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input value="FLOWTRIP" readOnly className="font-semibold" />
+                  <Input
+                    value="Voyages d'Exception"
+                    readOnly
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <img src={editedData.logoUrl} alt="Logo" />
+                <div>
+                  <h3>FLOWTRIP</h3>
+                  <p>Voyages d'Exception</p>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="ref">
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  value="Proposition de Voyage"
+                  readOnly
+                  className="font-semibold"
+                />
+                <div className="flex items-center gap-2">
+                  <span>Référence:</span>
+                  <Input value="FLO-2025-001" readOnly className="w-32" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>Proposition de Voyage</div>
+                <div>Référence: FLO-2025-001</div>
+              </>
+            )}
+          </div>
+        </div>
+        {editing ? (
+          <Input
+            value={editedData.titreVoyage}
+            onChange={(e) => handleChange("titreVoyage", e.target.value)}
+            className="text-4xl font-light text-center w-full bg-transparent border-none"
+            placeholder="Votre voyage avec Flowmatic"
+          />
+        ) : (
+          <h1>{editedData.titreVoyage}</h1>
+        )}
+      </section>
+
+      <div className="layout">
+        {/* Sidebar */}
+        <aside className="sidebar">
+          <div className="side-block">
+            <div className="side-title">Destination</div>
+            {editing ? (
+              <Input
+                value={editedData.pays_destination}
+                onChange={(e) =>
+                  handleChange("pays_destination", e.target.value)
+                }
+                className="w-full"
+              />
+            ) : (
+              <div className="pill">{editedData.pays_destination}</div>
+            )}
+          </div>
+          <div className="side-block">
+            <div className="side-title">Tarif indicatif</div>
+            {editing ? (
+              <div className="space-y-2">
+                <Input
+                  value={editedData.prix_par_personne}
+                  onChange={(e) =>
+                    handleChange("prix_par_personne", e.target.value)
+                  }
+                  className="w-full text-2xl font-bold text-center"
+                  placeholder="1399 EUR./pax/séjour"
+                />
+                <Input
+                  value="par personne"
+                  readOnly
+                  className="w-full text-center text-sm"
+                />
+              </div>
+            ) : (
+              <div className="price-card">
+                <div className="price-main">{editedData.prix_par_personne}</div>
+                <div className="price-sub">par personne</div>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Content */}
+        <main className="content">
+          {/* Vos Envies */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_vos_envies}
+                      onChange={(e) =>
+                        handleChange("titre_vos_envies", e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_vos_envies")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() => handleChange("titre_vos_envies", "")}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_vos_envies
+                )}
+              </div>
+            </div>
+            {editing ? (
+              <div className="flex items-start gap-2">
+                <Textarea
+                  value={editedData.vos_envies || ""}
+                  onChange={(e) => handleChange("vos_envies", e.target.value)}
+                  className="flex-1 border border-gray-400 h-24 my-3"
+                  placeholder="Ajoutez vos envies ici..."
+                />
+                <Button
+                  onClick={() => openAiModal("Contenu Vos Envies")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700 mt-3"
+                >
+                  ✨
+                </Button>
+              </div>
+            ) : (
+              <div className="border border-gray-400 h-24 my-3 p-2">
+                {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+              </div>
+            )}
+          </section>
+
+          {/* Itinéraire en bref */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_itineraire_bref}
+                      onChange={(e) =>
+                        handleChange("titre_itineraire_bref", e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_itineraire_bref")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() => handleChange("titre_itineraire_bref", "")}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_itineraire_bref
+                )}
+              </div>
+              <span className="badge">
+                {editedData.table_itineraire_bref.length} jours
+              </span>
+            </div>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="itinerary" type="itinerary">
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="timeline"
+                  >
+                    {editedData.table_itineraire_bref.map((row, index) => (
+                      <Draggable
+                        key={index}
+                        draggableId={index.toString()}
+                        index={index}
+                      >
+                        {(provided) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className="row"
+                          >
+                            <div
+                              {...provided.dragHandleProps}
+                              className="drag-handle"
+                            >
+                              {editing && (
+                                <GripVertical className="h-4 w-4 text-gray-400" />
+                              )}
+                            </div>
+                            <div className="t-jour">
+                              {editing ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={row.jour}
+                                    onChange={(e) =>
+                                      handleItineraryChange(
+                                        index,
+                                        "jour",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="flex-1"
+                                    placeholder="Jour 1"
+                                  />
+                                  <span>·</span>
+                                  <Input
+                                    value={row.date}
+                                    onChange={(e) =>
+                                      handleItineraryChange(
+                                        index,
+                                        "date",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="flex-1"
+                                    placeholder="Vendredi 14 avril 2023"
+                                  />
+                                </div>
+                              ) : (
+                                row.jour + " · " + row.date
+                              )}
+                            </div>
+                            <div className="t-program">
+                              {editing ? (
+                                <Textarea
+                                  value={row.programme}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "programme",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full"
+                                  rows={3}
+                                  placeholder="Arrivée à Madrid, visite guidée du musée du Prado..."
+                                />
+                              ) : (
+                                <p>{row.programme}</p>
+                              )}
+                            </div>
+                            <div className="t-nuit">
+                              {editing ? (
+                                <Input
+                                  value={row.nuit}
+                                  onChange={(e) =>
+                                    handleItineraryChange(
+                                      index,
+                                      "nuit",
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-full"
+                                  placeholder="Madrid"
+                                />
+                              ) : (
+                                row.nuit
+                              )}
+                            </div>
+                            {editing && (
+                              <div className="flex items-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => removeItineraryEntry(index)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                    {editing && (
+                      <div className="row">
+                        <div className="t-jour">
+                          <Button
+                            onClick={addNewItineraryEntry}
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Ajouter un jour
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </section>
+
+          {/* Programme détaillé */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_programme_detaille}
+                      onChange={(e) =>
+                        handleChange("titre_programme_detaille", e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_programme_detaille")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() =>
+                        handleChange("titre_programme_detaille", "")
+                      }
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_programme_detaille
+                )}
+              </div>
+            </div>
+            {editing ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Label>Contenido del programa:</Label>
+                  <Button
+                    onClick={() => openAiModal("programme_detaille")}
+                    size="sm"
+                    variant="outline"
+                  >
+                    ✨ IA
+                  </Button>
+                </div>
+                <ReactQuill
+                  ref={quillRef}
+                  value={editedData.programme_detaille}
+                  onChange={(value) =>
+                    handleChange("programme_detaille", value)
+                  }
+                  modules={quillModules}
+                  formats={quillFormats}
+                  theme="snow"
+                />
+              </div>
+            ) : (
+              <div
+                className="prog-body"
+                dangerouslySetInnerHTML={{
+                  __html: editedData.programme_detaille,
+                }}
+              />
+            )}
+          </section>
+
+          {/* Détails / Services */}
+          <section className="section">
+            <div className="sec-head">
+              {editing ? (
+                <Input
+                  value="Détails de votre voyage"
+                  readOnly
+                  className="sec-title text-2xl font-bold"
+                />
+              ) : (
+                <div className="sec-title">Détails de votre voyage</div>
+              )}
+            </div>
+            <div className="grid-2">
+              <div className="card">
+                <div className="card-head green">
+                  {editing ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedData.titre_inclus}
+                        onChange={(e) =>
+                          handleChange("titre_inclus", e.target.value)
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => openAiModal("titre_inclus")}
+                        size="sm"
+                        variant="outline"
+                      >
+                        ✨
+                      </Button>
+                      <Button
+                        onClick={() => handleChange("titre_inclus", "")}
+                        size="sm"
+                        variant="destructive"
+                      >
+                        🗑️
+                      </Button>
+                    </div>
+                  ) : (
+                    editedData.titre_inclus
+                  )}
+                </div>
+                <div className="card-body">
+                  <ul className="list-clean">
+                    {editedData.inclus.map((item, index) => (
+                      <li key={index}>
+                        {editing ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={item}
+                              onChange={(e) =>
+                                handleListItemChange(
+                                  "inclus",
+                                  index,
+                                  e.target.value
+                                )
+                              }
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={() => openAiModal(`inclus_${index}`)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              ✨
+                            </Button>
+                            <Button
+                              onClick={() => removeListItem("inclus", index)}
+                              size="sm"
+                              variant="destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          item
+                        )}
+                      </li>
+                    ))}
+                    {editing && (
+                      <li>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => addNewListItem("inclus")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => openAiModal("inclus")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            ✨ IA
+                          </Button>
+                        </div>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-head red">
+                  {editing ? (
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={editedData.titre_non_inclus}
+                        onChange={(e) =>
+                          handleChange("titre_non_inclus", e.target.value)
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={() => openAiModal("titre_non_inclus")}
+                        size="sm"
+                        variant="outline"
+                      >
+                        ✨
+                      </Button>
+                      <Button
+                        onClick={() => handleChange("titre_non_inclus", "")}
+                        size="sm"
+                        variant="destructive"
+                      >
+                        🗑️
+                      </Button>
+                    </div>
+                  ) : (
+                    editedData.titre_non_inclus
+                  )}
+                </div>
+                <div className="card-body">
+                  <ul className="list-clean neg">
+                    {editedData.non_inclus.map((item, index) => (
+                      <li key={index}>
+                        {editing ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={item}
+                              onChange={(e) =>
+                                handleListItemChange(
+                                  "non_inclus",
+                                  index,
+                                  e.target.value
+                                )
+                              }
+                              className="flex-1"
+                            />
+                            <Button
+                              onClick={() => openAiModal(`non_inclus_${index}`)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              ✨
+                            </Button>
+                            <Button
+                              onClick={() =>
+                                removeListItem("non_inclus", index)
+                              }
+                              size="sm"
+                              variant="destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          item
+                        )}
+                      </li>
+                    ))}
+                    {editing && (
+                      <li>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => addNewListItem("non_inclus")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => openAiModal("non_inclus")}
+                            size="sm"
+                            variant="outline"
+                          >
+                            ✨ IA
+                          </Button>
+                        </div>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Hébergements personnalisés */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={editedData.titre_hebergements}
+                      onChange={(e) =>
+                        handleChange("titre_hebergements", e.target.value)
+                      }
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("titre_hebergements")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                    <Button
+                      onClick={() => handleChange("titre_hebergements", "")}
+                      size="sm"
+                      variant="destructive"
+                    >
+                      🗑️
+                    </Button>
+                    <Button onClick={addNewHotelPersonnalise} size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Ajouter un hôtel
+                    </Button>
+                  </div>
+                ) : (
+                  editedData.titre_hebergements
+                )}
+              </div>
+            </div>
+
+            <div className="hotels-intro">
+              {editing ? (
+                <Textarea
+                  value={editedData.intro_hebergements || ""}
+                  onChange={(e) =>
+                    handleChange("intro_hebergements", e.target.value)
+                  }
+                  className="w-full"
+                  rows={2}
+                />
+              ) : (
+                <p>{editedData.intro_hebergements}</p>
+              )}
+            </div>
+
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable
+                droppableId="hebergements_personnalises"
+                type="hebergements_personnalises"
+              >
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="hotels-list"
+                  >
+                    {editedData.hebergements_personnalises?.map(
+                      (hotel, index) => (
+                        <Draggable
+                          key={`personalized-${index}`}
+                          draggableId={`personalized-${index}`}
+                          index={index}
+                        >
+                          {(provided) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className="hotel-item"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="mb-2"
+                                  >
+                                    {editing && (
+                                      <GripVertical className="h-4 w-4 text-gray-400" />
+                                    )}
+                                  </div>
+
+                                  {editing ? (
+                                    <>
+                                      <div className="mb-2">
+                                        <Label>Nom de l'hôtel:</Label>
+                                        <Input
+                                          value={hotel.nom}
+                                          onChange={(e) =>
+                                            handleHotelPersonnaliseChange(
+                                              index,
+                                              "nom",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-full"
+                                        />
+                                      </div>
+                                      <div className="mb-2">
+                                        <Label>Description:</Label>
+                                        <Input
+                                          value={hotel.description}
+                                          onChange={(e) =>
+                                            handleHotelPersonnaliseChange(
+                                              index,
+                                              "description",
+                                              e.target.value
+                                            )
+                                          }
+                                          className="w-full"
+                                        />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="hotel-name">
+                                        {hotel.nom}
+                                      </div>
+                                      <div className="hotel-description">
+                                        {hotel.description}
+                                      </div>
+                                    </>
+                                  )}
+
+                                  <div className="mt-4">
+                                    {hotel.images.map((image, imgIndex) => (
+                                      <div
+                                        key={imgIndex}
+                                        className="relative mb-2"
+                                      >
+                                        <img
+                                          src={image}
+                                          alt={hotel.nom}
+                                          className="hotel-image"
+                                        />
+                                        {editing && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                              removeImageFromHotelPersonnalise(
+                                                index,
+                                                imgIndex
+                                              )
+                                            }
+                                            className="absolute top-0 right-0"
+                                          >
+                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {editing && (
+                                    <div className="mt-4">
+                                      <Label className="block mb-2">
+                                        Ajouter une image (URL):
+                                      </Label>
+                                      <div className="flex gap-2">
+                                        <Input
+                                          type="text"
+                                          placeholder="https://example.com/image.jpg"
+                                          value={
+                                            hotelImages[
+                                              `personalized-${index}`
+                                            ] || ""
+                                          }
+                                          onChange={(e) =>
+                                            setHotelImages({
+                                              ...hotelImages,
+                                              [`personalized-${index}`]:
+                                                e.target.value,
+                                            })
+                                          }
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          onClick={() =>
+                                            addImageToHotelPersonnalise(
+                                              index,
+                                              hotelImages[
+                                                `personalized-${index}`
+                                              ] || ""
+                                            )
+                                          }
+                                        >
+                                          <ImageIcon className="h-4 w-4 mr-2" />
+                                          Ajouter
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {editing && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      removeHotelPersonnalise(index)
+                                    }
+                                    className="ml-2"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      )
+                    )}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+
+            <div className="note-box">
+              {editing ? (
+                <Textarea
+                  value={editedData.note_hebergement || ""}
+                  onChange={(e) =>
+                    handleChange("note_hebergement", e.target.value)
+                  }
+                  className="w-full"
+                  rows={2}
+                />
+              ) : (
+                <p>
+                  <strong>NOTE :</strong> {editedData.note_hebergement}
+                </p>
+              )}
+            </div>
+          </section>
+        </main>
+      </div>
+
+      {/* CTA */}
+      <section className="cta">
+        {editing ? (
+          <div className="space-y-4 text-center">
+            <Input
+              value="Bon voyage"
+              readOnly
+              className="text-3xl font-light text-center bg-transparent border-none"
+            />
+            <Textarea
+              value="Votre aventure espagnole vous attend"
+              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+              className="text-lg text-center bg-transparent border-none"
+              rows={2}
+              placeholder="Votre aventure espagnole vous attend"
+            />
+          </div>
+        ) : (
+          <>
+            <h2>Bon voyage</h2>
+            <p>
+              {editedData.bonVoyageText ||
+                "Votre aventure espagnole vous attend"}
+            </p>
+          </>
+        )}
+      </section>
+
+      {/* Modal para agregar imagen */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
+            <Input
+              type="url"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="https://ejemplo.com/imagen.jpg"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                Agregar Imagen
+              </Button>
+              <Button
+                onClick={() => setShowImageModal(false)}
+                variant="outline"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para agregar enlace */}
+      {showLinkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
+            <Input
+              type="url"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://ejemplo.com"
+              className="mb-4"
+            />
+            <div className="flex gap-2">
+              <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                Agregar Enlace
+              </Button>
+              <Button onClick={() => setShowLinkModal(false)} variant="outline">
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Previa3;
