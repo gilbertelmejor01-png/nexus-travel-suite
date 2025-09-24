@@ -1,6 +1,6 @@
 /* Estilos para Previa2.tsx - Basado en Mustradiseño2.html */
 .doc {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   background: white;
   color: #333;
   line-height: 1.7;
@@ -18,7 +18,11 @@
 
 /* Header raffiné y más compacto */
 .doc .hero-header {
-  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--header-grad-a) 0%,
+    var(--header-grad-b) 100%
+  );
   min-height: 220px;
   display: flex;
   flex-direction: column;
@@ -51,34 +55,34 @@
 .doc .brand-inline img {
   height: 28px;
   display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
 .doc .brand-inline .brand-name {
   font-weight: 700;
-  letter-spacing: .6px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .doc .client-name {
   color: #fff;
   font-weight: 500;
-  letter-spacing: .3px;
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .doc .hero-content h1 {
   font-size: 2.1rem;
   font-weight: 300;
-  margin-bottom: .2rem;
-  text-shadow: 1px 1px 3px rgba(0,0,0,.22);
+  margin-bottom: 0.2rem;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.22);
 }
 
 .doc .hero-content p {
   font-size: 1.02rem;
   font-weight: 300;
-  opacity: .96;
+  opacity: 0.96;
 }
 
 .doc .main-content {
@@ -98,11 +102,11 @@
   margin-bottom: 1.6rem;
   text-align: center;
   position: relative;
-  padding-bottom: .9rem;
+  padding-bottom: 0.9rem;
 }
 
 .doc .section-title::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -135,7 +139,7 @@
   font-weight: 600;
   font-size: 10pt;
   text-transform: uppercase;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   border-bottom: 1px solid var(--hairline);
 }
 
@@ -167,7 +171,7 @@
 .doc .prog-title {
   font-weight: 600;
   color: #2c3e50;
-  margin-bottom: .6rem;
+  margin-bottom: 0.6rem;
 }
 
 .doc .programme-image {
@@ -176,7 +180,7 @@
   height: 280px;
   object-fit: cover;
   border-radius: 6px;
-  margin: .6rem 0 1rem;
+  margin: 0.6rem 0 1rem;
   display: block;
 }
 
@@ -203,14 +207,18 @@
 }
 
 .doc .services-table th {
-  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--header-grad-a) 0%,
+    var(--header-grad-b) 100%
+  );
   color: #fff;
   padding: 1.1rem;
   text-align: center;
   font-weight: 600;
   font-size: 11pt;
   text-transform: uppercase;
-  letter-spacing: .6px;
+  letter-spacing: 0.6px;
   width: 50%;
 }
 
@@ -226,7 +234,7 @@
 }
 
 .doc .services-table li {
-  padding: .45rem 0 .45rem 1.2rem;
+  padding: 0.45rem 0 0.45rem 1.2rem;
   font-size: 10.5pt;
   line-height: 1.6;
   position: relative;
@@ -236,7 +244,7 @@
   content: "✓";
   position: absolute;
   left: 0;
-  top: .1rem;
+  top: 0.1rem;
   color: #333;
   font-weight: 800;
 }
@@ -245,7 +253,7 @@
   content: "✗";
   position: absolute;
   left: 0;
-  top: .1rem;
+  top: 0.1rem;
   color: #333;
   font-weight: 800;
 }
@@ -263,7 +271,7 @@
   font-size: 2.3rem;
   color: #2c3e50;
   font-weight: 300;
-  margin-bottom: .4rem;
+  margin-bottom: 0.4rem;
 }
 
 .doc .prix-detail {
@@ -300,7 +308,7 @@
 .doc .hotel-name {
   font-weight: 600;
   color: #2c3e50;
-  margin-bottom: .35rem;
+  margin-bottom: 0.35rem;
   font-size: 11pt;
 }
 
@@ -338,14 +346,14 @@
 .doc .footer-section h2 {
   font-size: 1.7rem;
   font-weight: 300;
-  margin-bottom: .4rem;
+  margin-bottom: 0.4rem;
   text-transform: capitalize;
 }
 
 .doc .footer-section p {
   font-size: 1.05rem;
   font-weight: 300;
-  opacity: .95;
+  opacity: 0.95;
 }
 
 /* Conditions */
@@ -377,10 +385,10 @@
 
 /* Estilos para Previa3.tsx - Basado en Mustradiseño3.html */
 :root {
-  --brand-bg: #195F96; /* Bleu header */
-  --brand-green: #06A37A; /* Vert pétard Inclus */
-  --brand-red: #E53935; /* Rouge vif Non inclus */
-  --day-blue: #1A74AA; /* Bleu pour libellés Jour */
+  --brand-bg: #195f96; /* Bleu header */
+  --brand-green: #06a37a; /* Vert pétard Inclus */
+  --brand-red: #e53935; /* Rouge vif Non inclus */
+  --day-blue: #1a74aa; /* Bleu pour libellés Jour */
   --text: #0f172a;
   --muted: #64748b;
   --paper: #ffffff;
@@ -397,7 +405,7 @@
   max-width: 210mm;
   margin: 16px auto;
   background: var(--paper);
-  box-shadow: 0 0 24px rgba(2,6,23,0.08);
+  box-shadow: 0 0 24px rgba(2, 6, 23, 0.08);
   overflow: hidden;
   border-radius: 10px;
 }
@@ -478,9 +486,9 @@
 }
 
 .document .side-title {
-  font-size: .8rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: .12rem;
+  letter-spacing: 0.12rem;
   color: var(--muted);
   margin-bottom: 8px;
 }
@@ -490,7 +498,7 @@
   border: 1px solid var(--stroke);
   border-radius: 8px;
   padding: 10px 12px;
-  font-size: .92rem;
+  font-size: 0.92rem;
 }
 
 .document .price-card {
@@ -503,12 +511,12 @@
 
 .document .price-main {
   font-family: Georgia, serif;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 300;
 }
 
 .document .price-sub {
-  font-size: .95rem;
+  font-size: 0.95rem;
   color: var(--muted);
 }
 
@@ -538,7 +546,7 @@
 }
 
 .document .badge {
-  font-size: .75rem;
+  font-size: 0.75rem;
   padding: 4px 8px;
   border-radius: 999px;
   background: #eef6ff;
@@ -651,7 +659,7 @@
   padding: 7px 0 7px 18px;
   border-bottom: 1px dotted var(--stroke);
   position: relative;
-  font-size: .95rem;
+  font-size: 0.95rem;
 }
 
 .document .list-clean li:last-child {
@@ -716,7 +724,7 @@
 .document .cta h2 {
   margin-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: .6px;
+  letter-spacing: 0.6px;
 }
 
 /* Conditions */
@@ -744,18 +752,19 @@
 
 /* Responsive design */
 @media (max-width: 768px) {
-  .doc, .document {
+  .doc,
+  .document {
     padding: 15px;
   }
-  
+
   .document .content-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .document .services-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .doc .header-section h1,
   .document .hero-header h1 {
     font-size: 2rem;

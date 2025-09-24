@@ -844,7 +844,7 @@ ${JSON.stringify(editedData, null, 2)}`;
 }
 
 .price-main {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: #667eea;
   margin-bottom: 5px;
@@ -1131,7 +1131,9 @@ ${JSON.stringify(editedData, null, 2)}`;
       <!-- Vos Envies -->
       <section class="section">
         <div class="sec-head">
-          <div class="sec-title">${editedData.titre_vos_envies || "VOS ENVIES"}</div>
+          <div class="sec-title">${
+            editedData.titre_vos_envies || "VOS ENVIES"
+          }</div>
         </div>
         <div class="border border-gray-400 h-24 my-3 p-2">
           ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
@@ -1141,27 +1143,40 @@ ${JSON.stringify(editedData, null, 2)}`;
       <!-- Itinéraire en bref -->
       <section class="section">
         <div class="sec-head">
-          <div class="sec-title">${editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE EN BREF"}</div>
-          <span class="badge">${editedData.table_itineraire_bref.length} jours</span>
+          <div class="sec-title">${
+            editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE EN BREF"
+          }</div>
+          <span class="badge">${
+            editedData.table_itineraire_bref.length
+          } jours</span>
         </div>
         <div class="timeline">
-          ${(editedData.table_itineraire_bref || []).map((row, index) => `
+          ${(editedData.table_itineraire_bref || [])
+            .map(
+              (row, index) => `
           <div class="row">
             <div class="t-jour">${row.jour} · ${row.date}</div>
             <div class="t-program"><p>${row.programme}</p></div>
             <div class="t-nuit">${row.nuit}</div>
           </div>
-          `).join('')}
+          `
+            )
+            .join("")}
         </div>
       </section>
 
       <!-- Programme détaillé -->
       <section class="section">
         <div class="sec-head">
-          <div class="sec-title">${editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"}</div>
+          <div class="sec-title">${
+            editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"
+          }</div>
         </div>
         <div class="prog-body">
-          ${editedData.programme_detaille || "<p>Description du programme à venir</p>"}
+          ${
+            editedData.programme_detaille ||
+            "<p>Description du programme à venir</p>"
+          }
         </div>
       </section>
 
@@ -1172,18 +1187,30 @@ ${JSON.stringify(editedData, null, 2)}`;
         </div>
         <div class="grid-2">
           <div class="card">
-            <div class="card-head green">${editedData.titre_inclus || "INCLUS"}</div>
+            <div class="card-head green">${
+              editedData.titre_inclus || "INCLUS"
+            }</div>
             <div class="card-body">
               <ul class="list-clean">
-                ${(editedData.inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service inclus</li>'}
+                ${
+                  (editedData.inclus || [])
+                    .map((item) => `<li>${item}</li>`)
+                    .join("") || "<li>Aucun service inclus</li>"
+                }
               </ul>
             </div>
           </div>
           <div class="card">
-            <div class="card-head red">${editedData.titre_non_inclus || "NON INCLUS"}</div>
+            <div class="card-head red">${
+              editedData.titre_non_inclus || "NON INCLUS"
+            }</div>
             <div class="card-body">
               <ul class="list-clean neg">
-                ${(editedData.non_inclus || []).map(item => `<li>${item}</li>`).join('') || '<li>Aucun service non inclus</li>'}
+                ${
+                  (editedData.non_inclus || [])
+                    .map((item) => `<li>${item}</li>`)
+                    .join("") || "<li>Aucun service non inclus</li>"
+                }
               </ul>
             </div>
           </div>
@@ -1193,22 +1220,38 @@ ${JSON.stringify(editedData, null, 2)}`;
       <!-- Hébergements personnalisés -->
       <section class="section">
         <div class="sec-head">
-          <div class="sec-title">${editedData.titre_hebergements || "VOS HÉBERGEMENTS"}</div>
+          <div class="sec-title">${
+            editedData.titre_hebergements || "VOS HÉBERGEMENTS"
+          }</div>
         </div>
         <div class="hotels-intro">
-          <p>${editedData.intro_hebergements || "Hébergements sélectionnés pour leur confort, charme et localisation."}</p>
+          <p>${
+            editedData.intro_hebergements ||
+            "Hébergements sélectionnés pour leur confort, charme et localisation."
+          }</p>
         </div>
         <div class="hotels-list">
-          ${(editedData.hebergements_personnalises || []).map((hotel, index) => `
+          ${(editedData.hebergements_personnalises || [])
+            .map(
+              (hotel, index) => `
           <div class="hotel-item">
             <div class="hotel-name">${hotel.nom}</div>
             <div class="hotel-description">${hotel.description}</div>
-            ${hotel.images[0] ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">` : ''}
+            ${
+              hotel.images[0]
+                ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">`
+                : ""
+            }
           </div>
-          `).join('')}
+          `
+            )
+            .join("")}
         </div>
         <div class="note-box">
-          <p><strong>NOTE :</strong> ${editedData.note_hebergement || "Les hébergements proposés sont sujets à disponibilité au moment de la réservation."}</p>
+          <p><strong>NOTE :</strong> ${
+            editedData.note_hebergement ||
+            "Les hébergements proposés sont sujets à disponibilité au moment de la réservation."
+          }</p>
         </div>
       </section>
     </main>
@@ -1478,8 +1521,8 @@ ${JSON.stringify(editedData, null, 2)}`;
                   onChange={(e) =>
                     handleChange("prix_par_personne", e.target.value)
                   }
-                  className="w-full text-2xl font-bold text-center"
-                  placeholder="1399 EUR./pax/séjour"
+                  className="  w-full text-2xl font-bold text-center"
+                  placeholder=" 1399 EUR"
                 />
                 <Input
                   value="par personne"
