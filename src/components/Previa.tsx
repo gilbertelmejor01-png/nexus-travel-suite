@@ -1102,10 +1102,15 @@ ${JSON.stringify(editedData, null, 2)}`;
     if (linkUrl && quillRef.current) {
       const quill = quillRef.current.getEditor();
       const range = quill.getSelection();
-      if (range) {
+      if (range && range.length > 0) {
         quill.formatText(range.index, range.length, "link", linkUrl);
         setShowLinkModal(false);
         setLinkUrl("");
+      } else {
+        // Opcional: muestra un mensaje al usuario
+        alert(
+          "Selecciona el texto en el editor al que quieres agregar el enlace."
+        );
       }
     }
   };
