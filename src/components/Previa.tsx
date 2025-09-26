@@ -552,6 +552,11 @@ export interface VoyageData {
   titre_hotel: string;
   // Hoteles personalizados
   hebergements_personnalises: HotelInfo[];
+  // Nuevas propiedades para elementos editables del header
+  propositionTitle?: string;
+  reference?: string;
+  brandName?: string;
+  groupeText?: string;
 }
 
 interface PreviaProps {
@@ -1664,8 +1669,31 @@ ${plantillaStyles}
       {/* Hero Section - Diseño de Plantilla.html */}
       <section className="hero-section">
         <div className="hero-meta">
-          <div>Proposition de Voyage</div>
-          <div>Référence: FLO-2025-001</div>
+          {editing ? (
+            <div className="space-y-2">
+              <Input
+                value={editedData.propositionTitle || "Proposition de Voyage"}
+                onChange={(e) =>
+                  handleChange("propositionTitle", e.target.value)
+                }
+                className="text-white bg-transparent border-white/30 text-right"
+                placeholder="Proposition de Voyage"
+              />
+              <Input
+                value={editedData.reference || "Référence: FLO-2025-001"}
+                onChange={(e) => handleChange("reference", e.target.value)}
+                className="text-white bg-transparent border-white/30 text-right"
+                placeholder="Référence: FLO-2025-001"
+              />
+            </div>
+          ) : (
+            <>
+              <div>
+                {editedData.propositionTitle || "Proposition de Voyage"}
+              </div>
+              <div>{editedData.reference || "Référence: FLO-2025-001"}</div>
+            </>
+          )}
         </div>
         <div className="hero-content">
           <div className="hero-logo">
@@ -1686,7 +1714,16 @@ ${plantillaStyles}
                 className="hero-logo-img"
               />
             )}
-            <h2>FLOWTRIP</h2>
+            {editing ? (
+              <Input
+                value={editedData.brandName || "FLOWTRIP"}
+                onChange={(e) => handleChange("brandName", e.target.value)}
+                className="text-white bg-transparent border-white/30 text-center font-semibold text-1.8rem"
+                placeholder="FLOWTRIP"
+              />
+            ) : (
+              <h2>{editedData.brandName || "FLOWTRIP"}</h2>
+            )}
           </div>
           {editing ? (
             <div className="space-y-4">
