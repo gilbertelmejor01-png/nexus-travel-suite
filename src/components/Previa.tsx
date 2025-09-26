@@ -848,6 +848,16 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
+  const handleToolbarLink = () => {
+    const quill = quillRef.current?.getEditor();
+    const range = quill?.getSelection();
+    if (range && range.length > 0) {
+      setShowLinkModal(true);
+    } else {
+      alert("Selecciona primero el texto al que quieres agregar el enlace.");
+    }
+  };
+
   const quillModules = {
     toolbar: {
       container: [
@@ -859,7 +869,7 @@ ${JSON.stringify(editedData, null, 2)}`;
         ["clean"],
       ],
       handlers: {
-        link: () => setShowLinkModal(true),
+        link: handleToolbarLink,
         image: () => setShowImageModal(true),
       },
     },
