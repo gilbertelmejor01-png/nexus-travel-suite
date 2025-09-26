@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import ReactDOM from "react-dom";
 
 // Styles from Plantilla.html adapted for React
 const plantillaStyles = `
@@ -2969,58 +2970,66 @@ ${plantillaStyles}
         )}
 
         {/* Modal para agregar imagen */}
-        {showImageModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">🖼️ Agregar Imagen</h3>
-              <Input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://ejemplo.com/imagen.jpg"
-                className="mb-4"
-              />
-              <div className="flex gap-2">
-                <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
-                  Agregar Imagen
-                </Button>
-                <Button
-                  onClick={() => setShowImageModal(false)}
-                  variant="outline"
-                >
-                  Cancelar
-                </Button>
+        {showImageModal &&
+          ReactDOM.createPortal(
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4">
+                  🖼️ Agregar Imagen
+                </h3>
+                <Input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://ejemplo.com/imagen.jpg"
+                  className="mb-4"
+                />
+                <div className="flex gap-2">
+                  <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
+                    Agregar Imagen
+                  </Button>
+                  <Button
+                    onClick={() => setShowImageModal(false)}
+                    variant="outline"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          )}
 
         {/* Modal para agregar enlace */}
-        {showLinkModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold mb-4">🔗 Agregar Enlace</h3>
-              <Input
-                type="url"
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://ejemplo.com"
-                className="mb-4"
-              />
-              <div className="flex gap-2">
-                <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
-                  Agregar Enlace
-                </Button>
-                <Button
-                  onClick={() => setShowLinkModal(false)}
-                  variant="outline"
-                >
-                  Cancelar
-                </Button>
+        {showLinkModal &&
+          ReactDOM.createPortal(
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+                <h3 className="text-lg font-semibold mb-4">
+                  🔗 Agregar Enlace
+                </h3>
+                <Input
+                  type="url"
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="https://ejemplo.com"
+                  className="mb-4"
+                />
+                <div className="flex gap-2">
+                  <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
+                    Agregar Enlace
+                  </Button>
+                  <Button
+                    onClick={() => setShowLinkModal(false)}
+                    variant="outline"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          )}
       </main>
     </div>
   );
