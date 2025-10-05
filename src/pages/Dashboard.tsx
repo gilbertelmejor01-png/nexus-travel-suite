@@ -613,7 +613,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {data.kpis.viajesActivos.count}
+              {data.ultimosPresupuestos.filter(p => p.estado === "firmado").length}
             </div>
             <div className="flex items-center text-xs text-success">
               <TrendingUp className="h-3 w-3 mr-1" />+

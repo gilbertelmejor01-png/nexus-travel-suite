@@ -13,11 +13,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Upload, Image, Save, Cpu } from "lucide-react";
+import { Building2, Upload, Image, Save, Cpu, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
+import { uploadImageWithFallback, isCloudinaryUrl } from "@/lib/cloudinary";
 
 interface PerfilEmpresa {
   nombreEmpresa: string;
@@ -56,6 +57,7 @@ export default function Perfil() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string>("");
   const [guardando, setGuardando] = useState(false);
+  const [subiendoLogo, setSubiendoLogo] = useState(false);
   const { toast } = useToast();
   const { uid } = useAuth();
 
@@ -165,33 +167,71 @@ export default function Perfil() {
     });
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (!file.type.includes("image/")) {
-        toast({
-          title: t("error_title"),
-          description: t("only_image_files_allowed"),
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!file) return;
 
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: t("error_title"),
-          description: t("file_size_exceeded"),
-          variant: "destructive",
-        });
-        return;
-      }
+    // Validaciones
+    if (!file.type.includes("image/")) {
+      toast({
+        title: t("error_title"),
+        description: t("only_image_files_allowed"),
+        variant: "destructive",
+      });
+      return;
+    }
 
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: t("error_title"),
+        description: t("file_size_exceeded"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubiendoLogo(true);
+
+    try {
+      // Mostrar preview temporal
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataURL = e.target?.result as string;
-        handleLogoChange("archivo", dataURL);
+        setLogoPreview(dataURL);
       };
       reader.readAsDataURL(file);
+
+      // Subir a Cloudinary (con fallback a base64)
+      const imageUrl = await uploadImageWithFallback(file);
+      
+      // Determinar si es URL de Cloudinary o base64
+      const isCloudinary = isCloudinaryUrl(imageUrl);
+      const tipo = isCloudinary ? "url" : "archivo";
+      
+      // Actualizar perfil con la URL
+      handleLogoChange(tipo, imageUrl);
+      
+      // Si es Cloudinary, actualizar el preview con la URL de Cloudinary
+      if (isCloudinary) {
+        setLogoPreview(imageUrl);
+      }
+      
+      toast({
+        title: t("success_title"),
+        description: isCloudinary ? t("logo_upload_success") : t("logo_saved_locally"),
+      });
+      
+      setIsDialogOpen(false);
+    } catch (error) {
+      console.error("Error subiendo imagen:", error);
+      toast({
+        title: t("error_title"),
+        description: t("logo_upload_error"),
+        variant: "destructive",
+      });
+      setLogoPreview("");
+    } finally {
+      setSubiendoLogo(false);
     }
   };
 
@@ -338,15 +378,24 @@ export default function Perfil() {
                         type="file"
                         accept="image/jpeg,image/png,image/jpg"
                         onChange={handleFileUpload}
+                        disabled={subiendoLogo}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         {t("file_formats_limit")}
                       </p>
                     </div>
+                    {subiendoLogo && (
+                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t("uploading_logo")}
+                      </div>
+                    )}
                     <Button
                       onClick={() => setIsDialogOpen(false)}
                       className="w-full"
+                      disabled={subiendoLogo}
                     >
+                      {subiendoLogo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       {t("use_file")}
                     </Button>
                   </TabsContent>

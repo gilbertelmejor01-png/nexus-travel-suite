@@ -1,4 +1,6 @@
 import React, { useState, useRef } from "react";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -23,9 +25,6 @@ import {
   Send,
   FileText,
 } from "lucide-react";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css";
-import ReactDOM from "react-dom";
 
 // Styles from Plantilla.html adapted for React
 const plantillaStyles = `
@@ -253,13 +252,51 @@ const plantillaStyles = `
   line-height: 1.7;
 }
 
-/* Centrar imágenes en programme détaillé */
-.programme-detaille img {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  max-width: 100%;
-  height: auto;
+/* Estilos para imágenes en programme détaillé */
+.programme-detaille img,
+.programme-content img {
+  display: block !important;
+  margin: 1rem auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Estilos para el contenido del programa */
+.programme-content p {
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.programme-content strong {
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.programme-content em {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.programme-content ul {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.programme-content li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+/* Estilos para el editor en modo vista previa */
+.programme-content-editor {
+  min-height: 256px;
+  outline: none;
+}
+
+.programme-content-editor:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
 }
 
 .services-grid {
@@ -558,6 +595,8 @@ export interface VoyageData {
   reference?: string;
   brandName?: string;
   groupeText?: string;
+  // Condiciones generales del perfil de empresa
+  condicionesGenerales?: string;
 }
 
 interface PreviaProps {
@@ -584,13 +623,19 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
+  // Estados para controlar secciones ocultas y restaurar
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
+  const [deletedSections, setDeletedSections] = useState<Map<string, any>>(new Map());
 
-  // Estados para manejo de imágenes y enlaces en ReactQuill
+  // Estados para manejo de imágenes y enlaces
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  // Referencia para ReactQuill
   const quillRef = useRef<ReactQuill>(null);
+  const [previewContent, setPreviewContent] = useState("");
+
 
   // Función para obtener el ID de conversación desde el perfil del usuario
   const obtenerConversacionId = async (uid: string): Promise<string | null> => {
@@ -796,6 +841,13 @@ ${JSON.stringify(editedData, null, 2)}`;
     cargarConversacionId();
   }, [currentUser]);
 
+  // Actualizar previsualización cuando cambie el contenido de programme_detaille
+  React.useEffect(() => {
+    if (editedData?.programme_detaille) {
+      setPreviewContent(editedData.programme_detaille);
+    }
+  }, [editedData?.programme_detaille]);
+
   const extractHotels = (): HotelInfo[] => {
     if (!editedData?.table_itineraire_bref) return [];
 
@@ -848,44 +900,9 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
-  const handleToolbarLink = () => {
-    const quill = quillRef.current?.getEditor();
-    const range = quill?.getSelection();
-    if (range && range.length > 0) {
-      setShowLinkModal(true);
-    } else {
-      alert("Selecciona primero el texto al que quieres agregar el enlace.");
-    }
-  };
 
-  const quillModules = {
-    toolbar: {
-      container: [
-        [{ header: [1, 2, 3, false] }],
-        ["bold", "italic", "underline", "strike"],
-        [{ list: "ordered" }, { list: "bullet" }],
-        ["link"],
-        ["image"],
-        ["clean"],
-      ],
-      handlers: {
-        link: handleToolbarLink,
-        image: () => setShowImageModal(true),
-      },
-    },
-  };
 
-  const quillFormats = [
-    "header",
-    "bold",
-    "italic",
-    "underline",
-    "strike",
-    "list",
-    "bullet",
-    "link",
-    "image",
-  ];
+
 
   const handleChange = (field: keyof VoyageData, value: string) => {
     if (!editedData) return;
@@ -1094,39 +1111,206 @@ ${JSON.stringify(editedData, null, 2)}`;
     });
   };
 
-  // Función para agregar imagen desde el modal
-  const handleAddImage = () => {
-    if (imageUrl && quillRef.current) {
+  // Función para validar URLs de imágenes
+  const validateImageUrl = (url: string): boolean => {
+    try {
+      new URL(url);
+      return url.match(/\.(jpeg|jpg|gif|png|webp|svg)(\?.*)?$/i) !== null;
+    } catch {
+      return false;
+    }
+  };
+
+
+
+  // Funciones para manejar eliminación y restauración de secciones
+  const hideSection = (sectionId: string) => {
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreSection = (sectionId: string) => {
+    setHiddenSections(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(sectionId);
+      return newSet;
+    });
+  };
+
+  const deleteSection = (sectionId: string, sectionData: any) => {
+    setDeletedSections(prev => new Map(prev).set(sectionId, sectionData));
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreDeletedSection = (sectionId: string) => {
+    const sectionData = deletedSections.get(sectionId);
+    if (sectionData) {
+      setEditedData(prev => ({ ...prev, ...sectionData }));
+      setDeletedSections(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(sectionId);
+        return newMap;
+      });
+      setHiddenSections(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+    }
+  };
+
+  // Función para obtener estadísticas del contenido
+  const getContentStats = (content: string) => {
+    const textContent = content.replace(/<[^>]*>/g, '');
+    return {
+      characters: textContent.length,
+      words: textContent.split(/\s+/).filter(word => word.length > 0).length,
+      paragraphs: (content.match(/<p>/g) || []).length,
+      images: (content.match(/<img/g) || []).length
+    };
+  };
+
+  // Función para validar contenido mínimo
+  const validateProgrammeContent = (content: string): boolean => {
+    const textContent = content.replace(/<[^>]*>/g, '');
+    return textContent.trim().length >= 50; // Mínimo 50 caracteres
+  };
+
+
+
+  // Función para manejar cambios en el editor de manera segura
+  const handleProgrammeChange = (value: string) => {
+    handleChange("programme_detaille", value);
+    
+    // Validación de contenido mínimo
+    if (!validateProgrammeContent(value)) {
+      setSaveError("⚠️ Le contenu est trop court. Ajoutez au moins 50 caractères.");
+      setTimeout(() => setSaveError(null), 3000);
+    }
+  };
+
+
+
+  // Configuración de ReactQuill para programme_detaille
+  const quillModules = React.useMemo(() => ({
+    toolbar: {
+      container: [
+        [{ header: [1, 2, 3, false] }],
+        ["bold", "italic", "underline", "strike"],
+        [{ list: "ordered" }, { list: "bullet" }],
+        ["link", "image"],
+        ["clean"],
+      ],
+      handlers: {
+        link: () => setShowLinkModal(true),
+        image: () => setShowImageModal(true),
+      },
+    },
+    clipboard: {
+      matchVisual: false, // Evita problemas de formato al pegar
+    }
+  }), []);
+
+  const quillFormats = [
+    "header",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "list",
+    "bullet",
+    "link",
+    "image",
+  ];
+
+  // Función para manejar cambios en el editor de manera segura
+  
+
+  // Función para inicializar el editor de manera segura
+  const handleEditorInit = () => {
+    if (quillRef.current) {
       const quill = quillRef.current.getEditor();
-      const range = quill.getSelection();
-      if (range) {
-        quill.insertEmbed(range.index, "image", imageUrl);
-        setShowImageModal(false);
-        setImageUrl("");
+      try {
+        // Asegurarse de que el editor tenga una selección válida
+        const length = quill.getLength();
+        if (length > 0) {
+          quill.setSelection(length, 0);
+        }
+      } catch (error) {
+        console.warn('Error al inicializar el editor:', error);
       }
     }
   };
 
-  // Función para agregar enlace desde el modal
-  const handleAddLink = () => {
-    if (linkUrl && quillRef.current) {
+  // Efecto para manejar el foco del editor de manera segura
+  React.useEffect(() => {
+    if (editing && quillRef.current) {
       const quill = quillRef.current.getEditor();
-      const range = quill.getSelection();
-      if (range && range.length > 0) {
-        quill.formatText(range.index, range.length, "link", linkUrl);
-        setShowLinkModal(false);
-        setLinkUrl("");
-      } else {
-        // Opcional: muestra un mensaje al usuario
-        alert(
-          "Selecciona el texto en el editor al que quieres agregar el enlace."
-        );
-      }
+      
+      let isHandlingFocus = false;
+      
+      const handleFocus = (eventName: string, ...args: any[]) => {
+        // Solo manejar eventos de foco si no estamos ya en medio de otro manejo
+        if (isHandlingFocus || eventName !== 'selection-change') return;
+        
+        isHandlingFocus = true;
+        try {
+          const selection = quill.getSelection();
+          if (!selection) {
+            const length = quill.getLength();
+            // Solo establecer selección si el editor está activo y visible
+            if (length > 0 && document.activeElement === quill.root) {
+              quill.setSelection(length, 0);
+            }
+          }
+        } catch (error) {
+          console.warn('Error al manejar el foco del editor:', error);
+        } finally {
+          isHandlingFocus = false;
+        }
+      };
+
+      quill.on('editor-change', handleFocus);
+      
+      return () => {
+        quill.off('editor-change', handleFocus);
+      };
     }
-  };
+  }, [editing, quillRef.current]);
+
+
+
+  // Prompt específico para programme_detaille
+  const getProgrammeDetaillePrompt = (currentContent: string) => `
+Eres un experto en redacción de itinerarios de viaje. Mejora este programa detallado:
+
+CONTENIDO ACTUAL:
+${currentContent}
+
+INSTRUCCIONES ESPECÍFICAS:
+- Mantén un tono atractivo y descriptivo
+- Incluye horarios sugeridos cuando sea relevante
+- Destaca experiencias únicas y momentos especiales
+- Usa lenguaje evocador pero profesional
+- Estructura en párrafos claros con transiciones suaves
+- Incluye recomendaciones prácticas cuando sea apropiado
+- Mantén la información esencial del itinerario
+- Resalta los aspectos culturales y gastronómicos
+- Proporciona contexto histórico cuando sea relevante
+- Sugiere opciones alternativas para diferentes intereses
+
+FORMATO DE RESPUESTA:
+- Devuelve SOLO el contenido HTML mejorado, sin explicaciones adicionales
+- Usa etiquetas HTML semánticas (p, strong, em, ul, li)
+- Incluye horarios en formato: <em>Matin :</em>, <em>Après-midi :</em>, <em>Soirée :</em>
+- Destaca los momentos claves con <strong>
+- Mantén un estilo coherente y profesional
+`;
 
   const handleSave = async () => {
-    if (!editedData) return;
+    if (!editedData) {
+      setSaveError("❌ No hay datos para guardar");
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -1138,9 +1322,15 @@ ${JSON.stringify(editedData, null, 2)}`;
         throw new Error("No se pudo obtener el ID de conversación del usuario");
       }
 
+      // Validar datos críticos antes de guardar
+      if (!editedData.table_itineraire_bref || editedData.table_itineraire_bref.length === 0) {
+        throw new Error("El itinerario no puede estar vacío");
+      }
+
       const docRef = doc(db, "conversacion", conversacionId);
       await updateDoc(docRef, {
         output: editedData,
+        lastUpdated: new Date(), // Agregar timestamp para tracking
       });
 
       setSaveSuccess(true);
@@ -1148,7 +1338,7 @@ ${JSON.stringify(editedData, null, 2)}`;
       setEditing(false);
     } catch (error) {
       console.error("Error saving data:", error);
-      setSaveError("Error al guardar los cambios. Intente nuevamente.");
+      setSaveError(`Error al guardar: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -1624,10 +1814,10 @@ ${plantillaStyles}
             <FileText className="h-4 w-4 mr-2" />
             Descargar HTML
           </Button>
-          <Button>
+          {/*<Button>
             <Send className="h-4 w-4 mr-2" />
             Enviar al cliente
-          </Button>
+          </Button>*/}
         </div>
       </div>
 
@@ -1640,6 +1830,27 @@ ${plantillaStyles}
       {saveError && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           ❌ {saveError}
+        </div>
+      )}
+
+      {/* Panel de secciones eliminadas */}
+      {editing && deletedSections.size > 0 && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
+          <h3 className="text-lg font-semibold mb-2">Sections supprimées</h3>
+          <div className="flex flex-wrap gap-2">
+            {Array.from(deletedSections.keys()).map(sectionId => (
+              <Button
+                key={sectionId}
+                onClick={() => restoreDeletedSection(sectionId)}
+                variant="outline"
+                size="sm"
+                className="bg-white"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Restaurer {sectionId}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -2079,12 +2290,12 @@ ${plantillaStyles}
           </div>
 
           {editing ? (
-            <div className="space-y-4">
-              <div className="mb-4">
+            <section className="space-y-4">
+              <section className="mb-4">
                 <Label className="block mb-2">
                   URL de l'image principale du programme:
                 </Label>
-                <div className="flex items-center gap-2">
+                <section className="flex items-center gap-2">
                   <Input
                     value={editedData.imageProgrammeUrl}
                     onChange={(e) =>
@@ -2101,56 +2312,111 @@ ${plantillaStyles}
                   >
                     ✨
                   </Button>
-                </div>
-              </div>
+                </section>
+                {editedData.imageProgrammeUrl && !validateImageUrl(editedData.imageProgrammeUrl) && (
+                  <span className="text-red-500 text-sm mt-1 block">
+                    ⚠️ URL de imagen no válida
+                  </span>
+                )}
+              </section>
 
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
+              <section className="mb-4">
+                <section className="flex items-center justify-between mb-2">
                   <Label>Contenu détaillé du programme:</Label>
-                  <Button
-                    onClick={() => openAiModal("programme_detaille")}
-                    variant="ghost"
-                    size="sm"
-                    className="text-yellow-600 hover:text-yellow-700"
-                  >
-                    ✨
-                  </Button>
-                </div>
-                <ReactQuill
-                  ref={quillRef}
-                  value={editedData.programme_detaille}
-                  onChange={(value) =>
-                    handleChange("programme_detaille", value)
-                  }
-                  modules={quillModules}
-                  formats={quillFormats}
-                  theme="snow"
-                  className="h-64"
-                />
-              </div>
+                  <section className="flex items-center gap-2">
+                    {editedData.programme_detaille && (
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                        📊 {getContentStats(editedData.programme_detaille).words} mots, 
+                        {getContentStats(editedData.programme_detaille).images} images
+                      </span>
+                    )}
+                  </section>
+                </section>
+                
+                {/* EDITOR SIMPLIFICADO - SOLO VISTA DE EDICIÓN DIRECTA */}
+                {editing ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Label>Contenido del programa:</Label>
+                      <Button
+                        onClick={() => {
+                          const prompt = getProgrammeDetaillePrompt(editedData.programme_detaille || "");
+                          setAiPrompt(prompt);
+                          openAiModal("programme_detaille");
+                        }}
+                        size="sm"
+                        variant="outline"
+                      >
+                        ✨ IA
+                      </Button>
+                    </div>
+                    <ReactQuill
+                      ref={quillRef}
+                      value={editedData.programme_detaille}
+                      onChange={handleProgrammeChange}
+                      modules={quillModules}
+                      formats={quillFormats}
+                      theme="snow"
+                      preserveWhitespace={true}
+                      bounds={'.programme-section'}
+                      onFocus={handleEditorInit}
+                      placeholder="Écrivez votre programme détaillé ici..."
+                    />
+                  </div>
+                ) : (
+                  <div className="prose max-w-none programme-detaille border rounded-md p-6 bg-white">
+                    {editedData.programme_detaille ? (
+                      <div 
+                        className="programme-content"
+                        dangerouslySetInnerHTML={{ 
+                          __html: editedData.programme_detaille 
+                        }} 
+                      />
+                    ) : (
+                      <p className="text-gray-500 italic">Description du programme à venir</p>
+                    )}
+                  </div>
+                )}
+                
+                {editedData.programme_detaille && !validateProgrammeContent(editedData.programme_detaille) && (
+                  <span className="text-orange-500 text-sm mt-2 block">
+                    ⚠️ Contenu trop court. Ajoutez plus de détails pour un programme complet.
+                  </span>
+                )}
+              </section>
 
-              {editedData.imageProgrammeUrl && (
-                <div className="flex justify-center">
+              {editedData.imageProgrammeUrl && validateImageUrl(editedData.imageProgrammeUrl) && (
+                <section className="flex justify-center">
                   <img
                     src={editedData.imageProgrammeUrl}
                     alt="Programme détaillé"
                     className="max-w-full h-48 object-cover rounded-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      setSaveError("❌ Impossible de charger l'image. Vérifiez l'URL.");
+                      setTimeout(() => setSaveError(null), 5000);
+                    }}
                   />
-                </div>
+                </section>
               )}
-            </div>
+            </section>
           ) : (
             <>
-              {editedData.imageProgrammeUrl && (
-                <div className="flex justify-center mb-6">
+              {editedData.imageProgrammeUrl && validateImageUrl(editedData.imageProgrammeUrl) && (
+                <section className="flex justify-center mb-6">
                   <img
                     src={editedData.imageProgrammeUrl}
                     alt="Programme détaillé"
                     className="w-full max-w-2xl h-64 object-cover rounded-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                    }}
                   />
-                </div>
+                </section>
               )}
-              <div
+              <section
                 className="prose max-w-none programme-detaille"
                 dangerouslySetInnerHTML={{
                   __html:
@@ -2158,6 +2424,12 @@ ${plantillaStyles}
                     "<p>Description du programme à venir</p>",
                 }}
               />
+              {editedData.programme_detaille && (
+                <section className="mt-4 text-sm text-gray-500 border-t pt-2">
+                  <strong></strong> 
+                  
+                </section>
+              )}
             </>
           )}
 
@@ -2183,9 +2455,31 @@ ${plantillaStyles}
 
         <div className="content-section">
           <div className="section-header">
-            <h3 className="section-title">Détails de votre voyage</h3>
+            <h3 className="section-title">
+              {editing ? (
+                <Input
+                  value="Détails de votre voyage"
+                  onChange={(e) => {
+                    // Este texto es fijo pero podríamos hacerlo editable si se desea
+                  }}
+                  className="w-full"
+                />
+              ) : (
+                "Détails de votre voyage"
+              )}
+            </h3>
             <p className="section-subtitle">
-              Tout ce qui est inclus dans votre forfait
+              {editing ? (
+                <Input
+                  value="Tout ce qui est inclus dans votre forfait"
+                  onChange={(e) => {
+                    // Este texto es fijo pero podríamos hacerlo editable si se desea
+                  }}
+                  className="w-full"
+                />
+              ) : (
+                "Tout ce qui est inclus dans votre forfait"
+              )}
             </p>
           </div>
 
@@ -2387,13 +2681,33 @@ ${plantillaStyles}
             </div>
           </div>
 
-          <div
-            className="p-4 my-4 rounded"
-            style={{
-              backgroundColor: editedData.themeColor + "20",
-              borderLeft: `4px solid ${editedData.themeColor}`,
-            }}
-          >
+          {!hiddenSections.has('tarifs_section') && (
+            <div
+              className="p-4 my-4 rounded"
+              style={{
+                backgroundColor: editedData.themeColor + "20",
+                borderLeft: `4px solid ${editedData.themeColor}`,
+              }}
+            >
+              {editing && (
+                <div className="flex justify-end mb-2">
+                  <Button
+                    onClick={() => deleteSection('tarifs_section', {
+                      titre_tarif: editedData.titre_tarif,
+                      prix_par_personne: editedData.prix_par_personne,
+                      titre_chambre_simple: editedData.titre_chambre_simple,
+                      chambre_simple: editedData.chambre_simple,
+                      titre_remarques: editedData.titre_remarques,
+                      remarques_tarifs: editedData.remarques_tarifs
+                    })}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Supprimer cette section
+                  </Button>
+                </div>
+              )}
             <p>
               <strong>
                 {editing ? (
@@ -2472,6 +2786,7 @@ ${plantillaStyles}
               )}
             </p>
           </div>
+          )}
         </div>
 
         <div className="content-section">
@@ -2490,61 +2805,138 @@ ${plantillaStyles}
               )}
             </h3>
             <p className="section-subtitle">
-              {editedData.intro_hebergements ||
-                "Sélection d'établissements de charme"}
+              {editing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedData.intro_hebergements || "Sélection d'établissements de charme"}
+                    onChange={(e) => handleChange("intro_hebergements", e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => openAiModal("intro_hebergements")}
+                    size="sm"
+                    variant="outline"
+                  >
+                    ✨
+                  </Button>
+                  <Button
+                    onClick={() => handleChange("intro_hebergements", "")}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    🗑️
+                  </Button>
+                </div>
+              ) : (
+                editedData.intro_hebergements || "Sélection d'établissements de charme"
+              )}
             </p>
           </div>
 
           {/* Hoteles extraídos del itinerario */}
-          <div className="hotels-grid">
-            {extractHotels().map((hotel, index) => {
-              const hotelImages: Record<string, string> = {
-                "El Mesón de Maria":
-                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
-                "Hotel Atitlan 4*":
-                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
-                "Jungle Lodge 3*":
-                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
-                "Hôtel accueillant et moderne - King Room":
-                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752809571/Captura_de_pantalla_de_2025-07-17_21-18-08_m8z7sc.png",
-              };
-
-              const defaultImage =
-                "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png";
-              const image = hotelImages[hotel.nom] || defaultImage;
-
-              return (
-                <div key={index} className="hotel-card">
-                  <img src={image} alt={hotel.nom} className="hotel-image" />
-                  <div className="hotel-info">
-                    <h4>{hotel.nom}</h4>
-                    <p>{hotel.description}</p>
-                    <div className="hotel-stars">★★★★☆</div>
-                    {editing && (
-                      <div className="mt-4">
-                        <Label className="block mb-2">
-                          Ajouter une image (URL):
-                        </Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="text"
-                            placeholder="https://example.com/image.jpg"
-                            value={newImageUrl}
-                            onChange={(e) => setNewImageUrl(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Button onClick={() => setActiveHotelIndex(index)}>
-                            <ImageIcon className="h-4 w-4 mr-2" />
-                            Ajouter
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          {!hiddenSections.has('hotels_extracted') && (
+            <div className="hotels-grid">
+              {editing && (
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-semibold">Hébergements extraits</h4>
+                  <Button
+                    onClick={() => deleteSection('hotels_extracted', {
+                      table_itineraire_bref: editedData.table_itineraire_bref
+                    })}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Supprimer cette section
+                  </Button>
                 </div>
-              );
-            })}
-          </div>
+              )}
+              {extractHotels().map((hotel, index) => {
+                const hotelImages: Record<string, string> = {
+                  "El Mesón de Maria":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Hotel Atitlan 4*":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Jungle Lodge 3*":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Hôtel accueillant et moderne - King Room":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752809571/Captura_de_pantalla_de_2025-07-17_21-18-08_m8z7sc.png",
+                };
+
+                const defaultImage =
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png";
+                const image = hotelImages[hotel.nom] || defaultImage;
+
+                return (
+                  <div key={index} className="hotel-card">
+                    <img src={image} alt={hotel.nom} className="hotel-image" />
+                    <div className="hotel-info">
+                      <h4>
+                        {editing ? (
+                          <Input
+                            value={hotel.nom}
+                            onChange={(e) => {
+                              const updatedItinerary = [...editedData.table_itineraire_bref];
+                              const entryIndex = updatedItinerary.findIndex(entry => entry.hôtel === hotel.nom);
+                              if (entryIndex !== -1) {
+                                updatedItinerary[entryIndex] = {
+                                  ...updatedItinerary[entryIndex],
+                                  hôtel: e.target.value
+                                };
+                                setEditedData({
+                                  ...editedData,
+                                  table_itineraire_bref: updatedItinerary
+                                });
+                              }
+                            }}
+                            className="w-full mb-2"
+                          />
+                        ) : (
+                          hotel.nom
+                        )}
+                      </h4>
+                      <p>
+                        {editing ? (
+                          <Textarea
+                            value={hotel.description}
+                            onChange={(e) => {
+                              // Actualizar la descripción si es necesario
+                              // Esto podría requerir lógica adicional dependiendo de cómo se almacenen las descripciones
+                            }}
+                            className="w-full"
+                            rows={2}
+                          />
+                        ) : (
+                          hotel.description
+                        )}
+                      </p>
+                      <div className="hotel-stars">★★★★☆</div>
+                      {editing && (
+                        <div className="mt-4">
+                          <Label className="block mb-2">
+                            Ajouter une image (URL):
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="text"
+                              placeholder="https://example.com/image.jpg"
+                              value={newImageUrl}
+                              onChange={(e) => setNewImageUrl(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button onClick={() => setActiveHotelIndex(index)}>
+                              <ImageIcon className="h-4 w-4 mr-2" />
+                              Ajouter
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Hoteles personalizados (editables) */}
           <DragDropContext onDragEnd={onDragEnd}>
@@ -2853,6 +3245,17 @@ ${plantillaStyles}
           )}
         </div>
 
+        <section className="Codiciones_generales" >
+          {editedData.condicionesGenerales && (
+            <div className="conditions">
+              <h3>Conditions Générales</h3>
+              <div className="conditions-content">
+                {editedData.condicionesGenerales}
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* CTA Section - Diseño especial de Plantilla.html */}
         <section className="cta-section">
           <h2>
@@ -2867,7 +3270,17 @@ ${plantillaStyles}
               editedData.bonVoyageText || "BON VOYAGE !"
             )}
           </h2>
-          <p>Votre aventure vous attend</p>
+          <p>
+            {editing ? (
+              <Input
+                value={editedData.bonVoyageText || "Votre aventure vous attend"}
+                onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+                className="w-full text-center"
+              />
+            ) : (
+              editedData.bonVoyageText || "Votre aventure vous attend"
+            )}
+          </p>
         </section>
 
         <div className="footer text-center py-6 border-t border-gray-300 mt-4">
@@ -2985,66 +3398,35 @@ ${plantillaStyles}
         )}
 
         {/* Modal para agregar imagen */}
-        {showImageModal &&
-          ReactDOM.createPortal(
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold mb-4">
-                  🖼️ Agregar Imagen
-                </h3>
-                <Input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                  className="mb-4"
-                />
-                <div className="flex gap-2">
-                  <Button onClick={handleAddImage} disabled={!imageUrl.trim()}>
-                    Agregar Imagen
-                  </Button>
-                  <Button
-                    onClick={() => setShowImageModal(false)}
-                    variant="outline"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
+        {showImageModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">
+                🖼️ Ajouter une Image
+              </h3>
+              <Input
+                type="url"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="mb-4"
+              />
+              <div className="flex gap-2">
+                <Button 
+                 
+                >
+                  Ajouter l'Image
+                </Button>
+                <Button
+                  onClick={() => setShowImageModal(false)}
+                  variant="outline"
+                >
+                  Annuler
+                </Button>
               </div>
-            </div>,
-            document.body
-          )}
-
-        {/* Modal para agregar enlace */}
-        {showLinkModal &&
-          ReactDOM.createPortal(
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
-                <h3 className="text-lg font-semibold mb-4">
-                  🔗 Agregar Enlace
-                </h3>
-                <Input
-                  type="url"
-                  value={linkUrl}
-                  onChange={(e) => setLinkUrl(e.target.value)}
-                  placeholder="https://ejemplo.com"
-                  className="mb-4"
-                />
-                <div className="flex gap-2">
-                  <Button onClick={handleAddLink} disabled={!linkUrl.trim()}>
-                    Agregar Enlace
-                  </Button>
-                  <Button
-                    onClick={() => setShowLinkModal(false)}
-                    variant="outline"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

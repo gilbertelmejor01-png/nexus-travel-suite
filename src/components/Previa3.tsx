@@ -77,6 +77,8 @@ export interface VoyageData {
   hebergements_personnalises: HotelInfo[];
   conditions_generales?: string;
   client_name?: string;
+  // Condiciones generales del perfil de empresa
+  condicionesGenerales?: string;
 }
 
 interface PreviaProps {
@@ -103,6 +105,44 @@ const Previa3 = ({ data, loading, error }: PreviaProps) => {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
+  // Estados para controlar secciones ocultas y restaurar
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
+  const [deletedSections, setDeletedSections] = useState<Map<string, any>>(new Map());
+
+  // Funciones para manejar eliminación y restauración de secciones
+  const hideSection = (sectionId: string) => {
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreSection = (sectionId: string) => {
+    setHiddenSections(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(sectionId);
+      return newSet;
+    });
+  };
+
+  const deleteSection = (sectionId: string, sectionData: any) => {
+    setDeletedSections(prev => new Map(prev).set(sectionId, sectionData));
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreDeletedSection = (sectionId: string) => {
+    const sectionData = deletedSections.get(sectionId);
+    if (sectionData) {
+      setEditedData(prev => ({ ...prev, ...sectionData }));
+      setDeletedSections(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(sectionId);
+        return newMap;
+      });
+      setHiddenSections(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+    }
+  };
 
   // Estados para manejo de imágenes y enlaces en ReactQuill
   const [showImageModal, setShowImageModal] = useState(false);
@@ -366,7 +406,7 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
-  const quillModules = {
+  const quillModules = React.useMemo(() => ({
     toolbar: {
       container: [
         [{ header: [1, 2, 3, false] }],
@@ -380,7 +420,10 @@ ${JSON.stringify(editedData, null, 2)}`;
         image: () => setShowImageModal(true),
       },
     },
-  };
+    clipboard: {
+      matchVisual: false, // Evita problemas de formato al pegar
+    }
+  }), []);
 
   const quillFormats = [
     "header",
@@ -393,6 +436,42 @@ ${JSON.stringify(editedData, null, 2)}`;
     "link",
     "image",
   ];
+
+  // Efecto para manejar el foco del editor de manera segura
+  React.useEffect(() => {
+    if (editing && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      
+      let isHandlingFocus = false;
+      
+      const handleFocus = (eventName: string, ...args: any[]) => {
+        // Solo manejar eventos de foco si no estamos ya en medio de otro manejo
+        if (isHandlingFocus || eventName !== 'selection-change') return;
+        
+        isHandlingFocus = true;
+        try {
+          const selection = quill.getSelection();
+          if (!selection) {
+            const length = quill.getLength();
+            // Solo establecer selección si el editor está activo y visible
+            if (length > 0 && document.activeElement === quill.root) {
+              quill.setSelection(length, 0);
+            }
+          }
+        } catch (error) {
+          console.warn('Error al manejar el foco del editor:', error);
+        } finally {
+          isHandlingFocus = false;
+        }
+      };
+
+      quill.on('editor-change', handleFocus);
+      
+      return () => {
+        quill.off('editor-change', handleFocus);
+      };
+    }
+  }, [editing, quillRef.current]);
 
   const handleChange = (field: keyof VoyageData, value: string) => {
     if (!editedData) return;
@@ -650,7 +729,10 @@ ${JSON.stringify(editedData, null, 2)}`;
   };
 
   const handleSave = async () => {
-    if (!editedData) return;
+    if (!editedData) {
+      setSaveError("❌ No hay datos para guardar");
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -662,18 +744,23 @@ ${JSON.stringify(editedData, null, 2)}`;
         throw new Error("No se pudo obtener el ID de conversación del usuario");
       }
 
+      // Validar datos críticos antes de guardar
+      if (!editedData.table_itineraire_bref || editedData.table_itineraire_bref.length === 0) {
+        throw new Error("El itinerario no puede estar vacío");
+      }
+
       const docRef = doc(db, "conversacion", conversacionId);
       await updateDoc(docRef, {
         output: editedData,
+        lastUpdated: new Date(), // Agregar timestamp para tracking
       });
 
       setSaveSuccess(true);
-
       setTimeout(() => setSaveSuccess(false), 3000);
       setEditing(false);
     } catch (error) {
       console.error("Error saving data:", error);
-      setSaveError("Error al guardar los cambios. Intente nuevamente.");
+      setSaveError(`Error al guardar: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -1307,7 +1394,12 @@ ${JSON.stringify(editedData, null, 2)}`;
     );
 
   return (
-    <div className="document">
+    <div
+      className="document "
+      style={{
+        maxWidth: "1200px",
+      }}
+    >
       {/* Botones de edición/guardar en la parte superior */}
       <div className="flex justify-between items-center mb-4 p-4 bg-gray-50 rounded-lg">
         <div>
@@ -1367,9 +1459,9 @@ ${JSON.stringify(editedData, null, 2)}`;
             Descargar HTML
           </Button>
 
-          <Button>
+          {/*<Button>
             <Send className="h-4 w-4 mr-2" /> Enviar al cliente
-          </Button>
+          </Button>*/}
         </div>
       </div>
 
@@ -1391,6 +1483,27 @@ ${JSON.stringify(editedData, null, 2)}`;
       {saveError && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           ❌ {saveError}
+        </div>
+      )}
+
+      {/* Panel de secciones eliminadas */}
+      {editing && deletedSections.size > 0 && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
+          <h3 className="text-lg font-semibold mb-2">Sections supprimées</h3>
+          <div className="flex flex-wrap gap-2">
+            {Array.from(deletedSections.keys()).map(sectionId => (
+              <Button
+                key={sectionId}
+                onClick={() => restoreDeletedSection(sectionId)}
+                variant="outline"
+                size="sm"
+                className="bg-white"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Restaurer {sectionId}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1431,7 +1544,7 @@ ${JSON.stringify(editedData, null, 2)}`;
       )}
 
       {/* HEADER */}
-      <section className="cover">
+      <section className="cover max-w-5xl mx-auto p-8">
         <div className="cover-top">
           <div className="brand">
             {editing ? (
@@ -1641,6 +1754,12 @@ ${JSON.stringify(editedData, null, 2)}`;
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     className="timeline"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '110px 1fr 90px',
+                      gap: '10px',
+                      width: '100%'
+                    }}
                   >
                     {editedData.table_itineraire_bref.map((row, index) => (
                       <Draggable
@@ -1652,19 +1771,13 @@ ${JSON.stringify(editedData, null, 2)}`;
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
-                            className="row"
+                            style={{
+                              display: 'contents'
+                            }}
                           >
-                            <div
-                              {...provided.dragHandleProps}
-                              className="drag-handle"
-                            >
-                              {editing && (
-                                <GripVertical className="h-4 w-4 text-gray-400" />
-                              )}
-                            </div>
-                            <div className="t-jour">
+                            <div className="t-jour" style={{ fontWeight: '800', color: '#1A74AA' }}>
                               {editing ? (
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-1">
                                   <Input
                                     value={row.jour}
                                     onChange={(e) =>
@@ -1674,10 +1787,9 @@ ${JSON.stringify(editedData, null, 2)}`;
                                         e.target.value
                                       )
                                     }
-                                    className="flex-1"
-                                    placeholder="Jour 1"
+                                    className="w-full"
+                                    placeholder="J1"
                                   />
-                                  <span>·</span>
                                   <Input
                                     value={row.date}
                                     onChange={(e) =>
@@ -1687,34 +1799,60 @@ ${JSON.stringify(editedData, null, 2)}`;
                                         e.target.value
                                       )
                                     }
-                                    className="flex-1"
-                                    placeholder="Vendredi 14 avril 2023"
+                                    className="w-full text-sm"
+                                    placeholder="Ven. 14 avril"
                                   />
                                 </div>
                               ) : (
-                                row.jour + " · " + row.date
+                                <div>
+                                  <div>{row.jour}</div>
+                                  <div style={{ fontSize: '0.9em' }}>{row.date}</div>
+                                </div>
                               )}
                             </div>
-                            <div className="t-program">
+                            <div 
+                              className="t-program" 
+                              style={{ 
+                                borderLeft: '2px dashed #e2e8f0',
+                                paddingLeft: '10px'
+                              }}
+                            >
                               {editing ? (
-                                <Textarea
-                                  value={row.programme}
-                                  onChange={(e) =>
-                                    handleItineraryChange(
-                                      index,
-                                      "programme",
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-full"
-                                  rows={3}
-                                  placeholder="Arrivée à Madrid, visite guidée du musée du Prado..."
-                                />
+                                <div className="flex items-start gap-2">
+                                  <Textarea
+                                    value={row.programme}
+                                    onChange={(e) =>
+                                      handleItineraryChange(
+                                        index,
+                                        "programme",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="flex-1"
+                                    rows={3}
+                                    placeholder="Arrivée à Madrid, visite guidée du musée du Prado..."
+                                    style={{ marginBottom: '6px' }}
+                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <div {...provided.dragHandleProps}>
+                                      {editing && (
+                                        <GripVertical className="h-4 w-4 text-gray-400" />
+                                      )}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeItineraryEntry(index)}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </div>
+                                </div>
                               ) : (
-                                <p>{row.programme}</p>
+                                <p style={{ marginBottom: '6px' }}>{row.programme}</p>
                               )}
                             </div>
-                            <div className="t-nuit">
+                            <div className="t-nuit" style={{ color: '#64748b' }}>
                               {editing ? (
                                 <Input
                                   value={row.nuit}
@@ -1732,24 +1870,14 @@ ${JSON.stringify(editedData, null, 2)}`;
                                 row.nuit
                               )}
                             </div>
-                            {editing && (
-                              <div className="flex items-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeItineraryEntry(index)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              </div>
-                            )}
                           </div>
                         )}
                       </Draggable>
                     ))}
                     {provided.placeholder}
                     {editing && (
-                      <div className="row">
+                      <div style={{ display: 'contents' }}>
+                        <div></div>
                         <div className="t-jour">
                           <Button
                             onClick={addNewItineraryEntry}
@@ -1761,6 +1889,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                             Ajouter un jour
                           </Button>
                         </div>
+                        <div></div>
                       </div>
                     )}
                   </div>
@@ -2036,6 +2165,92 @@ ${JSON.stringify(editedData, null, 2)}`;
             </div>
           </section>
 
+          {/* Hoteles extraídos del itinerario */}
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                {editing ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value="Hébergements du séjour"
+                      readOnly
+                      className="flex-1"
+                    />
+                    <Button
+                      onClick={() => openAiModal("hotels_extraits")}
+                      size="sm"
+                      variant="outline"
+                    >
+                      ✨
+                    </Button>
+                  </div>
+                ) : (
+                  "Hébergements du séjour"
+                )}
+              </div>
+            </div>
+            <div className="hotels-grid">
+              {extractHotels().map((hotel, index) => {
+                const hotelImages: Record<string, string> = {
+                  "El Mesón de Maria":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Hotel Atitlan 4*":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Jungle Lodge 3*":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png",
+                  "Hôtel accueillant et moderne - King Room":
+                    "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752809571/Captura_de_pantalla_de_2025-07-17_21-18-08_m8z7sc.png",
+                };
+
+                const defaultImage =
+                  "https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png";
+                const image = hotelImages[hotel.nom] || defaultImage;
+
+                return (
+                  <div key={index} className="hotel-card">
+                    <img src={image} alt={hotel.nom} className="hotel-image" />
+                    <div className="hotel-info">
+                      <h4>{hotel.nom}</h4>
+                      <p>{hotel.description}</p>
+                      <div className="hotel-stars">★★★★☆</div>
+                      {editing && (
+                        <div className="mt-4">
+                          <Label className="block mb-2">
+                            Ajouter une image (URL):
+                          </Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="text"
+                              placeholder="https://example.com/image.jpg"
+                              value={newImageUrl}
+                              onChange={(e) => setNewImageUrl(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button onClick={() => setActiveHotelIndex(index)}>
+                              <ImageIcon className="h-4 w-4 mr-2" />
+                              Ajouter
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="Codiciones_generales" >
+            {editedData.conditions_generales && (
+              <div className="conditions">
+                <h3>Conditions Générales</h3>
+                <div className="conditions-content">
+                  {editedData.conditions_generales}
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Hébergements personnalisés */}
           <section className="section">
             <div className="sec-head">
@@ -2073,6 +2288,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                 )}
               </div>
             </div>
+            
 
             <div className="hotels-intro">
               {editing ? (
@@ -2195,6 +2411,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                       </div>
                                     ))}
                                   </div>
+                                 
 
                                   {editing && (
                                     <div className="mt-4">
@@ -2260,6 +2477,8 @@ ${JSON.stringify(editedData, null, 2)}`;
                 )}
               </Droppable>
             </DragDropContext>
+
+            
 
             <div className="note-box">
               {editing ? (

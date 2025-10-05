@@ -246,7 +246,7 @@ const PricingTable: React.FC<PricingTableProps> = ({ plans }) => {
             />
           </span>
         </label>
-        <span style={styles.toggleLabel}>Annuel</span>
+        <span style={styles.toggleLabel}>promotion</span>
       </div>
 
       <div style={styles.plansContainer}>
@@ -326,8 +326,8 @@ const PricingTable: React.FC<PricingTableProps> = ({ plans }) => {
 const samplePlans: Plan[] = [
   {
     name: "Lite",
-    monthlyPrice: 29000,
-    annualPrice: 19000,
+    monthlyPrice: 19000,
+    annualPrice: 11900,
     features: [
       "Accès basique à la plateforme",
       "Support par email",
@@ -337,8 +337,8 @@ const samplePlans: Plan[] = [
   },
   {
     name: "Starter",
-    monthlyPrice: 49000,
-    annualPrice: 36000,
+    monthlyPrice: 34000,
+    annualPrice: 29000,
     features: [
       "Accès complet à la plateforme",
       "Support prioritaire 24/7",
@@ -351,7 +351,7 @@ const samplePlans: Plan[] = [
   },
   {
     name: "Pro",
-    monthlyPrice: 79000,
+    monthlyPrice: 59000,
     annualPrice: 54000,
     features: [
       "Toutes les fonctionnalités Starter",

@@ -83,6 +83,8 @@ export interface VoyageData {
   bonVoyageTitle?: string;
   brandName?: string;
   clientName?: string;
+  // Condiciones generales del perfil de empresa
+  condicionesGenerales?: string;
   programDescription?: string;
 }
 
@@ -110,6 +112,10 @@ const Previa2 = ({ data, loading, error }: PreviaProps) => {
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [activeAiSection, setActiveAiSection] = useState<string | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
+  // Estados para controlar secciones ocultas y restaurar
+  const [hiddenSections, setHiddenSections] = useState<Set<string>>(new Set());
+  const [deletedSections, setDeletedSections] = useState<Map<string, any>>(new Map());
+
 
   // Estados para manejo de imágenes y enlaces en ReactQuill
   const [showImageModal, setShowImageModal] = useState(false);
@@ -373,7 +379,7 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
-  const quillModules = {
+  const quillModules = React.useMemo(() => ({
     toolbar: {
       container: [
         [{ header: [1, 2, 3, false] }],
@@ -387,7 +393,10 @@ ${JSON.stringify(editedData, null, 2)}`;
         image: () => setShowImageModal(true),
       },
     },
-  };
+    clipboard: {
+      matchVisual: false, // Evita problemas de formato al pegar
+    }
+  }), []);
 
   const quillFormats = [
     "header",
@@ -400,6 +409,63 @@ ${JSON.stringify(editedData, null, 2)}`;
     "link",
     "image",
   ];
+
+  // Efecto para manejar el foco del editor de manera segura
+  React.useEffect(() => {
+    if (editing && quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      
+      let isHandlingFocus = false;
+      
+      const handleFocus = (eventName: string, ...args: any[]) => {
+        // Solo manejar eventos de foco si no estamos ya en medio de otro manejo
+        if (isHandlingFocus || eventName !== 'selection-change') return;
+        
+        isHandlingFocus = true;
+        try {
+          const selection = quill.getSelection();
+          if (!selection) {
+            const length = quill.getLength();
+            // Solo establecer selección si el editor está activo y visible
+            if (length > 0 && document.activeElement === quill.root) {
+              quill.setSelection(length, 0);
+            }
+          }
+        } catch (error) {
+          console.warn('Error al manejar el foco del editor:', error);
+        } finally {
+          isHandlingFocus = false;
+        }
+      };
+
+      quill.on('editor-change', handleFocus);
+      
+      return () => {
+        quill.off('editor-change', handleFocus);
+      };
+    }
+  }, [editing, quillRef.current]);
+
+  // Función para manejar cambios en el editor de manera segura
+  const handleProgrammeChange = (value: string) => {
+    handleChange("programme_detaille", value);
+  };
+
+  // Función para inicializar el editor de manera segura
+  const handleEditorInit = () => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      try {
+        // Asegurarse de que el editor tenga una selección válida
+        const length = quill.getLength();
+        if (length > 0) {
+          quill.setSelection(length, 0);
+        }
+      } catch (error) {
+        console.warn('Error al inicializar el editor:', error);
+      }
+    }
+  };
 
   const handleChange = (field: keyof VoyageData, value: string) => {
     if (!editedData) return;
@@ -630,6 +696,41 @@ ${JSON.stringify(editedData, null, 2)}`;
     });
   };
 
+  // Funciones para manejar eliminación y restauración de secciones
+  const hideSection = (sectionId: string) => {
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreSection = (sectionId: string) => {
+    setHiddenSections(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(sectionId);
+      return newSet;
+    });
+  };
+
+  const deleteSection = (sectionId: string, sectionData: any) => {
+    setDeletedSections(prev => new Map(prev).set(sectionId, sectionData));
+    setHiddenSections(prev => new Set(prev).add(sectionId));
+  };
+
+  const restoreDeletedSection = (sectionId: string) => {
+    const sectionData = deletedSections.get(sectionId);
+    if (sectionData) {
+      setEditedData(prev => ({ ...prev, ...sectionData }));
+      setDeletedSections(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(sectionId);
+        return newMap;
+      });
+      setHiddenSections(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sectionId);
+        return newSet;
+      });
+    }
+  };
+
   // Función para agregar imagen desde el modal
   const handleAddImage = () => {
     if (imageUrl && quillRef.current) {
@@ -657,7 +758,10 @@ ${JSON.stringify(editedData, null, 2)}`;
   };
 
   const handleSave = async () => {
-    if (!editedData) return;
+    if (!editedData) {
+      setSaveError("❌ No hay datos para guardar");
+      return;
+    }
 
     setSaving(true);
     setSaveError(null);
@@ -669,18 +773,23 @@ ${JSON.stringify(editedData, null, 2)}`;
         throw new Error("No se pudo obtener el ID de conversación del usuario");
       }
 
+      // Validar datos críticos antes de guardar
+      if (!editedData.table_itineraire_bref || editedData.table_itineraire_bref.length === 0) {
+        throw new Error("El itinerario no puede estar vacío");
+      }
+
       const docRef = doc(db, "conversacion", conversacionId);
       await updateDoc(docRef, {
         output: editedData,
+        lastUpdated: new Date(), // Agregar timestamp para tracking
       });
 
       setSaveSuccess(true);
-
       setTimeout(() => setSaveSuccess(false), 3000);
       setEditing(false);
     } catch (error) {
       console.error("Error saving data:", error);
-      setSaveError("Error al guardar los cambios. Intente nuevamente.");
+      setSaveError(`Error al guardar: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -1305,9 +1414,9 @@ ${JSON.stringify(editedData, null, 2)}`;
             Descargar HTML
           </Button>
 
-          <Button>
+          {/*<Button>
             <Send className="h-4 w-4 mr-2" /> Enviar al cliente
-          </Button>
+          </Button>*/}
         </div>
       </div>
 
@@ -1334,6 +1443,27 @@ ${JSON.stringify(editedData, null, 2)}`;
       {saveError && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
           ❌ {saveError}
+        </div>
+      )}
+
+      {/* Panel de secciones eliminadas */}
+      {editing && deletedSections.size > 0 && (
+        <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded">
+          <h3 className="text-lg font-semibold mb-2">Sections supprimées</h3>
+          <div className="flex flex-wrap gap-2">
+            {Array.from(deletedSections.keys()).map(sectionId => (
+              <Button
+                key={sectionId}
+                onClick={() => restoreDeletedSection(sectionId)}
+                variant="outline"
+                size="sm"
+                className="bg-white"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Restaurer {sectionId}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -1407,7 +1537,7 @@ ${JSON.stringify(editedData, null, 2)}`;
           </div>
           <div className="client-name">
             {editing ? (
-              <Input 
+              <Input
                 value={editedData.clientName || "Mme Doulcet"}
                 onChange={(e) => handleChange("clientName", e.target.value)}
                 className="w-32 text-sm"
@@ -1429,8 +1559,13 @@ ${JSON.stringify(editedData, null, 2)}`;
               />
               <div className="flex items-center justify-center gap-2">
                 <Input
-                  value={editedData.programDescription || `Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
-                  onChange={(e) => handleChange("programDescription", e.target.value)}
+                  value={
+                    editedData.programDescription ||
+                    `Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`
+                  }
+                  onChange={(e) =>
+                    handleChange("programDescription", e.target.value)
+                  }
                   className="text-lg text-center bg-transparent border-none w-auto"
                   placeholder={`Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}
                 />
@@ -1458,62 +1593,100 @@ ${JSON.stringify(editedData, null, 2)}`;
       {/* CONTENIDO PRINCIPAL */}
       <div className="main-content">
         {/* Vos Envies */}
-        <section className="section">
-          <h2 className="section-title">
+        {!hiddenSections.has('vos_envies_section') && (
+          <section className="section">
+            {editing && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  onClick={() => deleteSection('vos_envies_section', {
+                    titre_vos_envies: editedData.titre_vos_envies,
+                    vos_envies: editedData.vos_envies
+                  })}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Supprimer cette section
+                </Button>
+              </div>
+            )}
+            <h2 className="section-title">
+              {editing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedData.titre_vos_envies}
+                    onChange={(e) =>
+                      handleChange("titre_vos_envies", e.target.value)
+                    }
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={() => openAiModal("titre_vos_envies")}
+                    size="sm"
+                    variant="outline"
+                  >
+                    ✨
+                  </Button>
+                  <Button
+                    onClick={() => handleChange("titre_vos_envies", "")}
+                    size="sm"
+                    variant="destructive"
+                  >
+                    🗑️
+                  </Button>
+                </div>
+              ) : (
+                editedData.titre_vos_envies
+              )}
+            </h2>
             {editing ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  value={editedData.titre_vos_envies}
-                  onChange={(e) =>
-                    handleChange("titre_vos_envies", e.target.value)
-                  }
-                  className="flex-1"
+              <div className="flex items-start gap-2">
+                <Textarea
+                  value={editedData.vos_envies || ""}
+                  onChange={(e) => handleChange("vos_envies", e.target.value)}
+                  className="flex-1 border border-gray-400 h-24 my-3"
+                  placeholder="Ajoutez vos envies ici..."
                 />
                 <Button
-                  onClick={() => openAiModal("titre_vos_envies")}
+                  onClick={() => openAiModal("Contenu Vos Envies")}
+                  variant="ghost"
                   size="sm"
-                  variant="outline"
+                  className="text-yellow-600 hover:text-yellow-700 mt-3"
                 >
                   ✨
                 </Button>
-                <Button
-                  onClick={() => handleChange("titre_vos_envies", "")}
-                  size="sm"
-                  variant="destructive"
-                >
-                  🗑️
-                </Button>
               </div>
             ) : (
-              editedData.titre_vos_envies
+              <div className="border border-gray-400 h-24 my-3 p-2">
+                {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
+              </div>
             )}
-          </h2>
-          {editing ? (
-            <div className="flex items-start gap-2">
-              <Textarea
-                value={editedData.vos_envies || ""}
-                onChange={(e) => handleChange("vos_envies", e.target.value)}
-                className="flex-1 border border-gray-400 h-24 my-3"
-                placeholder="Ajoutez vos envies ici..."
-              />
-              <Button
-                onClick={() => openAiModal("Contenu Vos Envies")}
-                variant="ghost"
-                size="sm"
-                className="text-yellow-600 hover:text-yellow-700 mt-3"
-              >
-                ✨
-              </Button>
-            </div>
-          ) : (
-            <div className="border border-gray-400 h-24 my-3 p-2">
-              {editedData.vos_envies || "Vos envies seront ajoutés ici..."}
-            </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* Itinéraire */}
-        <section className="section">
+        {!hiddenSections.has('itineraire_section') && (
+          <section className="section">
+            {editing && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  onClick={() => deleteSection('itineraire_section', {
+                    titre_itineraire_bref: editedData.titre_itineraire_bref,
+                    table_itineraire_bref: editedData.table_itineraire_bref,
+                    titre_jour: editedData.titre_jour,
+                    titre_date: editedData.titre_date,
+                    titre_programme_table: editedData.titre_programme_table,
+                    titre_nuit: editedData.titre_nuit,
+                    titre_hotel: editedData.titre_hotel
+                  })}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Supprimer cette section
+                </Button>
+              </div>
+            )}
           <h2 className="section-title">
             {editing ? (
               <div className="flex items-center gap-2">
@@ -1664,7 +1837,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                           e.target.value
                                         )
                                       }
-                                      className="flex-1"
+                                      className="w-16"
                                     />
                                     <Button
                                       onClick={() =>
@@ -1693,7 +1866,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                           e.target.value
                                         )
                                       }
-                                      className="flex-1"
+                                      className="w-[100px]"
                                     />
                                     <Button
                                       onClick={() =>
@@ -1722,7 +1895,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                           e.target.value
                                         )
                                       }
-                                      className="flex-1"
+                                      className="w-28"
                                       rows={2}
                                     />
                                     <Button
@@ -1754,7 +1927,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                           e.target.value
                                         )
                                       }
-                                      className="flex-1"
+                                      className="w-[80px]"
                                     />
                                     <Button
                                       onClick={() =>
@@ -1783,7 +1956,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                                           e.target.value
                                         )
                                       }
-                                      className="flex-1"
+                                      className="w-[70px]"
                                     />
                                     <Button
                                       onClick={() =>
@@ -1852,9 +2025,26 @@ ${JSON.stringify(editedData, null, 2)}`;
             )}
           </div>
         </section>
+        )}
 
         {/* Programme détaillé */}
-        <section className="section programme-section">
+        {!hiddenSections.has('programme_detaille_section') && (
+          <section className="section programme-section">
+            {editing && (
+              <div className="flex justify-end mb-2">
+                <Button
+                  onClick={() => deleteSection('programme_detaille_section', {
+                    titre_programme_detaille: editedData.titre_programme_detaille,
+                    programme_detaille: editedData.programme_detaille
+                  })}
+                  variant="destructive"
+                  size="sm"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Supprimer cette section
+                </Button>
+              </div>
+            )}
           <h2 className="section-title">
             {editing ? (
               <div className="flex items-center gap-2">
@@ -1899,10 +2089,14 @@ ${JSON.stringify(editedData, null, 2)}`;
               <ReactQuill
                 ref={quillRef}
                 value={editedData.programme_detaille}
-                onChange={(value) => handleChange("programme_detaille", value)}
+                onChange={handleProgrammeChange}
                 modules={quillModules}
                 formats={quillFormats}
                 theme="snow"
+                preserveWhitespace={true}
+                bounds={'.programme-section'}
+                onFocus={handleEditorInit}
+                placeholder="Écrivez votre programme détaillé ici..."
               />
             </div>
           ) : (
@@ -1914,6 +2108,7 @@ ${JSON.stringify(editedData, null, 2)}`;
             />
           )}
         </section>
+        )}
 
         {/* Services */}
         <section className="section">
@@ -2272,26 +2467,28 @@ ${JSON.stringify(editedData, null, 2)}`;
             })}
 
             {/* Hoteles personalizados (editables) */}
-            {(editedData.hebergements_personnalises || []).map((hotel, index) => (
-              <div key={`personalized-${index}`} className="hotel-item">
-                {hotel.images[0] ? (
-                  <img
-                    src={hotel.images[0]}
-                    alt={hotel.nom}
-                    className="hotel-image"
-                  />
-                ) : (
-                  <div className="hotel-image bg-gray-200 flex items-center justify-center">
-                    <span>🖼️</span>
+            {(editedData.hebergements_personnalises || []).map(
+              (hotel, index) => (
+                <div key={`personalized-${index}`} className="hotel-item">
+                  {hotel.images[0] ? (
+                    <img
+                      src={hotel.images[0]}
+                      alt={hotel.nom}
+                      className="hotel-image"
+                    />
+                  ) : (
+                    <div className="hotel-image bg-gray-200 flex items-center justify-center">
+                      <span>🖼️</span>
+                    </div>
+                  )}
+                  <div className="hotel-info">
+                    <div className="hotel-name">{hotel.nom}</div>
+                    <div className="hotel-description">{hotel.description}</div>
+                    <div className="hotel-stars">★★★★☆</div>
                   </div>
-                )}
-                <div className="hotel-info">
-                  <div className="hotel-name">{hotel.nom}</div>
-                  <div className="hotel-description">{hotel.description}</div>
-                  <div className="hotel-stars">★★★★☆</div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
           <div className="note-simple">
             {editing ? (
@@ -2311,6 +2508,17 @@ ${JSON.stringify(editedData, null, 2)}`;
           </div>
         </section>
       </div>
+
+      <section className="Codiciones_generales" >
+          {editedData.condicionesGenerales && (
+            <div className="conditions">
+              <h3>Conditions Générales</h3>
+              <div className="conditions-content">
+                {editedData.condicionesGenerales}
+              </div>
+            </div>
+          )}
+        </section>
 
       {/* Footer */}
       <div className="footer-section">
