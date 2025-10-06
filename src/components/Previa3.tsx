@@ -844,12 +844,14 @@ ${JSON.stringify(editedData, null, 2)}`;
   color: var(--text);
   font-size: 11pt;
   line-height: 1.6;
-  max-width: 210mm;
-  margin: 16px auto;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
   background: var(--paper);
   box-shadow: 0 0 24px rgba(2, 6, 23, 0.08);
-  overflow: hidden;
+  overflow: visible;
   border-radius: 10px;
+  box-sizing: border-box;
 }
 
 /* Header */
@@ -925,7 +927,11 @@ ${JSON.stringify(editedData, null, 2)}`;
 /* Layout */
 .layout {
   display: grid;
-  grid-template-columns: 210px 1fr;
+  grid-template-columns: 240px 1fr;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  gap: 30px;
 }
 
 .sidebar {
@@ -978,6 +984,9 @@ ${JSON.stringify(editedData, null, 2)}`;
 /* Sections */
 .content {
   padding: 18px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 .section {
@@ -986,6 +995,9 @@ ${JSON.stringify(editedData, null, 2)}`;
   border-radius: 10px;
   padding: 18px;
   margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 .sec-head {
@@ -993,12 +1005,14 @@ ${JSON.stringify(editedData, null, 2)}`;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  width: 100%;
 }
 
 .sec-title {
   font-size: 1rem;
   font-weight: 700;
   color: var(--text);
+  width: 100%;
 }
 
 .badge {
@@ -1008,41 +1022,66 @@ ${JSON.stringify(editedData, null, 2)}`;
   background: #eef6ff;
   color: #1e40af;
   border: 1px solid #dbeafe;
+  white-space: nowrap;
 }
 
-/* Timeline Itinéraire */
+/* Timeline Itinéraire - Diseño mejorado */
 .timeline {
-  display: grid;
-  grid-template-columns: 110px 1fr 90px;
-  gap: 10px;
   width: 100%;
+  box-sizing: border-box;
 }
 
-.row {
-  display: contents;
+.timeline-row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr minmax(120px, auto);
+  gap: 15px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px dashed var(--stroke);
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.timeline-row:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
 }
 
 .t-jour {
   font-weight: 800;
   color: var(--day-blue);
   font-size: 0.95rem;
+  word-wrap: break-word;
+  padding-right: 10px;
+  box-sizing: border-box;
 }
 
 .t-program {
-  border-left: 2px dashed var(--stroke);
-  padding-left: 10px;
+  padding-left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  border-left: none;
 }
 
 .t-program p {
   margin-bottom: 6px;
   font-size: 0.95rem;
   color: var(--text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  width: 100%;
+  line-height: 1.5;
 }
 
 .t-nuit {
   color: var(--muted);
   font-size: 0.95rem;
   text-align: right;
+  word-wrap: break-word;
+  padding-left: 10px;
+  box-sizing: border-box;
+  font-style: italic;
 }
 
 /* Programme détaillé */
@@ -1230,6 +1269,60 @@ ${JSON.stringify(editedData, null, 2)}`;
     padding: 12px;
   }
 }
+
+/* Ajustes adicionales para evitar cortes de contenido */
+.prog-body {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.prog-body p {
+  width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.hotels-list {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.hotel-item {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.note-box {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Asegurar que el contenido no se corte en impresión/descarga */
+@media print {
+  .document {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  
+  .layout {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  .content {
+    width: 100% !important;
+  }
+  
+  .section {
+    width: 100% !important;
+    page-break-inside: avoid;
+  }
+}
 </style>
 </head>
 <body>
@@ -1297,7 +1390,7 @@ ${JSON.stringify(editedData, null, 2)}`;
           ${(editedData.table_itineraire_bref || [])
             .map(
               (row, index) => `
-          <div class="row">
+          <div class="timeline-row">
             <div class="t-jour">${row.jour} · ${row.date}</div>
             <div class="t-program"><p>${row.programme}</p></div>
             <div class="t-nuit">${row.nuit}</div>
