@@ -3270,17 +3270,7 @@ ${plantillaStyles}
               editedData.bonVoyageText || "BON VOYAGE !"
             )}
           </h2>
-          <p>
-            {editing ? (
-              <Input
-                value={editedData.bonVoyageText || "Votre aventure vous attend"}
-                onChange={(e) => handleChange("bonVoyageText", e.target.value)}
-                className="w-full text-center"
-              />
-            ) : (
-              editedData.bonVoyageText || "Votre aventure vous attend"
-            )}
-          </p>
+         
         </section>
 
         <div className="footer text-center py-6 border-t border-gray-300 mt-4">
@@ -3296,7 +3286,7 @@ ${plantillaStyles}
               className="text-xl font-bold"
               style={{ color: editedData.themeColor }}
             >
-              {editedData.bonVoyageText}
+             
             </h2>
           )}
         </div>

@@ -2074,10 +2074,24 @@ ${JSON.stringify(editedData, null, 2)}`;
               editedData.titre_programme_detaille
             )}
           </h2>
-          {editing ? (
+            {editing ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Label>Contenido del programa:</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editedData.programDescription || "Contenido del programa:"}
+                    onChange={(e) => handleChange("programDescription", e.target.value)}
+                    className="w-64"
+                    placeholder="Contenido del programa:"
+                  />
+                  <Button
+                    onClick={() => openAiModal("programDescription")}
+                    size="sm"
+                    variant="outline"
+                  >
+                    ✨
+                  </Button>
+                </div>
                 <Button
                   onClick={() => openAiModal("programme_detaille")}
                   size="sm"
@@ -2116,7 +2130,7 @@ ${JSON.stringify(editedData, null, 2)}`;
             {editing ? (
               <div className="flex items-center gap-2">
                 <Input
-                  value="Détail de Votre Voyage"
+                  value={editedData.detailVoyageTitle || "Détail de Votre Voyage"}
                   onChange={(e) =>
                     handleChange("detailVoyageTitle", e.target.value)
                   }
@@ -2124,7 +2138,7 @@ ${JSON.stringify(editedData, null, 2)}`;
                   placeholder="Détail de Votre Voyage"
                 />
                 <Button
-                  onClick={() => openAiModal("Détail de Votre Voyage")}
+                  onClick={() => openAiModal("detailVoyageTitle")}
                   size="sm"
                   variant="outline"
                 >
@@ -2355,12 +2369,22 @@ ${JSON.stringify(editedData, null, 2)}`;
           </div>
           <div className="prix-detail">
             {editing ? (
-              <Input
-                value="par personne (base 30)"
-                onChange={(e) => handleChange("prixDetailText", e.target.value)}
-                className="text-center bg-transparent border-none"
-                placeholder="par personne (base 30)"
-              />
+              <div className="flex items-center gap-2 justify-center">
+                <Input
+                  value={editedData.prixDetailText || "par personne (base 30)"}
+                  onChange={(e) => handleChange("prixDetailText", e.target.value)}
+                  className="text-center bg-transparent border-none"
+                  placeholder="par personne (base 30)"
+                />
+                <Button
+                  onClick={() => openAiModal("prixDetailText")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700"
+                >
+                  ✨
+                </Button>
+              </div>
             ) : (
               editedData.prixDetailText || "par personne (base 30)"
             )}
@@ -2400,15 +2424,25 @@ ${JSON.stringify(editedData, null, 2)}`;
           </h2>
           <div className="hotels-intro">
             {editing ? (
-              <Textarea
-                value="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
-                onChange={(e) =>
-                  handleChange("hotelsIntroText", e.target.value)
-                }
-                className="w-full text-center"
-                rows={2}
-                placeholder="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
-              />
+              <div className="flex items-center gap-2">
+                <Textarea
+                  value={editedData.hotelsIntroText || "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."}
+                  onChange={(e) =>
+                    handleChange("hotelsIntroText", e.target.value)
+                  }
+                  className="w-full text-center"
+                  rows={2}
+                  placeholder="Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
+                />
+                <Button
+                  onClick={() => openAiModal("hotelsIntroText")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700"
+                >
+                  ✨
+                </Button>
+              </div>
             ) : (
               <p>
                 {editedData.hotelsIntroText ||
@@ -2492,15 +2526,25 @@ ${JSON.stringify(editedData, null, 2)}`;
           </div>
           <div className="note-simple">
             {editing ? (
-              <Textarea
-                value="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
-                onChange={(e) =>
-                  handleChange("disponibilityText", e.target.value)
-                }
-                className="w-full"
-                rows={2}
-                placeholder="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
-              />
+              <div className="flex items-center gap-2">
+                <Textarea
+                  value={editedData.disponibilityText || "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."}
+                  onChange={(e) =>
+                    handleChange("disponibilityText", e.target.value)
+                  }
+                  className="w-full"
+                  rows={2}
+                  placeholder="Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
+                />
+                <Button
+                  onClick={() => openAiModal("disponibilityText")}
+                  variant="ghost"
+                  size="sm"
+                  className="text-yellow-600 hover:text-yellow-700"
+                >
+                  ✨
+                </Button>
+              </div>
             ) : (
               editedData.disponibilityText ||
               "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
@@ -2524,23 +2568,43 @@ ${JSON.stringify(editedData, null, 2)}`;
       <div className="footer-section">
         {editing ? (
           <div className="space-y-4 text-center">
-            <Input
-              value="Bon Voyage !"
-              onChange={(e) => handleChange("bonVoyageTitle", e.target.value)}
-              className="text-3xl font-bold text-center"
-              placeholder="Bon Voyage !"
-            />
-            <Textarea
-              value="Votre aventure vous attend"
-              onChange={(e) => handleChange("bonVoyageText", e.target.value)}
-              className="text-lg text-center bg-transparent border-none"
-              rows={2}
-              placeholder="Votre aventure vous attend"
-            />
+            <div className="flex items-center gap-2 justify-center">
+              <Input
+                value={editedData.bonVoyageTitle || "Bon Voyage !"}
+                onChange={(e) => handleChange("bonVoyageTitle", e.target.value)}
+                className="text-3xl font-bold text-center"
+                placeholder="Bon Voyage !"
+              />
+              <Button
+                onClick={() => openAiModal("bonVoyageTitle")}
+                variant="ghost"
+                size="sm"
+                className="text-yellow-600 hover:text-yellow-700"
+              >
+                ✨
+              </Button>
+            </div>
+            <div className="flex items-center gap-2 justify-center">
+              <Textarea
+                value={editedData.bonVoyageText || "Votre aventure vous attend"}
+                onChange={(e) => handleChange("bonVoyageText", e.target.value)}
+                className="text-lg text-center bg-transparent border-none"
+                rows={2}
+                placeholder="Votre aventure vous attend"
+              />
+              <Button
+                onClick={() => openAiModal("bonVoyageText")}
+                variant="ghost"
+                size="sm"
+                className="text-yellow-600 hover:text-yellow-700"
+              >
+                ✨
+              </Button>
+            </div>
           </div>
         ) : (
           <>
-            <h2>Bon Voyage !</h2>
+            <h2>{editedData.bonVoyageTitle || "Bon Voyage !"}</h2>
             <p>{editedData.bonVoyageText || "Votre aventure vous attend"}</p>
           </>
         )}
