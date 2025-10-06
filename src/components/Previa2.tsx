@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import "./proposition.css"; // CSS del HTML convertido en un archivo separado
+import "./proposition.css"
 
 interface ItineraryEntry {
   jour: string;
@@ -837,7 +837,7 @@ ${JSON.stringify(editedData, null, 2)}`;
   const descargarPlantillaHTML = () => {
     if (!editedData) return;
 
-    // Crear el contenido HTML basado en la plantilla existente
+    // Crear el contenido HTML basado en la plantilla existente de Previa2
     const htmlContent = `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -845,115 +845,191 @@ ${JSON.stringify(editedData, null, 2)}`;
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
 <style>
-/* Estilos CSS para la plantilla Previa2 */
+/* Estilos EXACTOS de Previa2.tsx basados en proposition.css */
+:root {
+  --header-grad-a: #d4a574; /* doré doux */
+  --header-grad-b: #8b7355; /* bronze */
+  --hairline: #e0e0e0;
+  --muted: #666;
+}
+
 .doc {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #fff;
-  color: #0f172a;
-  line-height: 1.6;
-  font-size: 15px;
-  max-width: 1200px;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: white;
+  color: #333;
+  line-height: 1.7;
+  font-size: 10.5pt;
+  max-width: 300mm;
   margin: 0 auto;
 }
 
+/* Header raffiné y más compacto */
 .hero-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px 20px;
+  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
   text-align: center;
+  color: white;
   position: relative;
+  padding: 16px 20px 20px;
 }
 
 .hero-top {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  right: 16px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .brand-inline {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
+  color: #fff;
 }
 
 .brand-inline img {
-  height: 50px;
-  filter: brightness(0) invert(1);
+  height: 28px;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
 .brand-name {
-  font-size: 1.8rem;
-  font-weight: 300;
-  letter-spacing: 3px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-size: 16px;
 }
 
 .client-name {
-  font-size: 1.2rem;
-  opacity: 0.9;
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  font-size: 14px;
 }
 
 .hero-content h1 {
-  font-size: 3.5rem;
-  font-weight: 200;
-  margin-bottom: 15px;
-  letter-spacing: -1px;
+  font-size: 2.1rem;
+  font-weight: 300;
+  margin-bottom: 0.2rem;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.22);
+  color: white;
 }
 
 .hero-content p {
-  font-size: 1.2rem;
-  opacity: 0.9;
+  font-size: 1.02rem;
+  font-weight: 300;
+  opacity: 0.96;
+  color: white;
 }
 
 .main-content {
-  padding: 40px;
+  max-width: 2000px;
+  margin: 0 auto;
+  padding: 1.2rem 0.8rem;
 }
 
 .section {
-  margin-bottom: 50px;
+  margin-bottom: 3.2rem;
 }
 
 .section-title {
-  font-size: 1.8rem;
-  font-weight: 300;
-  color: #0f172a;
-  margin-bottom: 30px;
+  font-size: 1.35rem;
+  color: #2c3e50;
+  font-weight: 500;
+  margin-bottom: 1.6rem;
+  text-align: center;
+  position: relative;
+  padding-bottom: 0.9rem;
+}
+
+.section-title::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: var(--header-grad-a);
+}
+
+/* Tableau itinéraire */
+.itineraire-table {
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 1.6rem 0;
+  background: white;
 }
 
 .itineraire-table table {
   width: 100%;
   border-collapse: collapse;
-}
-
-.itineraire-table th,
-.itineraire-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
+  font-size: 10.5pt;
 }
 
 .itineraire-table th {
+  background: #f8f9fa;
+  color: #2c3e50;
+  padding: 1rem;
+  text-align: left;
   font-weight: 600;
-  background: #f8fafc;
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--hairline);
 }
 
-.note-simple {
-  margin-top: 20px;
-  padding: 15px;
-  background: #f8fafc;
-  border-radius: 8px;
-  font-size: 0.9rem;
+.itineraire-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
 }
 
+.itineraire-table tr:last-child td {
+  border-bottom: none;
+}
+
+.day-cell {
+  font-weight: 600;
+  color: var(--header-grad-a);
+  white-space: nowrap;
+}
+
+/* Programme détaillé */
 .programme-section {
-  background: #f8fafc;
-  padding: 30px;
-  border-radius: 15px;
+  margin: 2.4rem 0;
 }
 
 .programme-text {
+  max-width: 760px;
+  margin: 0 auto;
+  font-size: 11pt;
   line-height: 1.8;
+  color: #555;
+  text-align: justify;
+}
+
+.programme-text p {
+  margin-bottom: 16px;
+}
+
+/* Services (Inclus / Non inclus) */
+.services-table {
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 2rem 0;
 }
 
 .services-table table {
@@ -962,103 +1038,129 @@ ${JSON.stringify(editedData, null, 2)}`;
 }
 
 .services-table th {
-  padding: 20px;
+  background: linear-gradient(135deg, var(--header-grad-a) 0%, var(--header-grad-b) 100%);
+  color: #fff;
+  padding: 1.1rem;
+  text-align: center;
   font-weight: 600;
-  font-size: 1.1rem;
-  color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-size: 11pt;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  width: 50%;
 }
 
 .services-table td {
-  padding: 25px;
+  padding: 1.4rem;
   vertical-align: top;
+  width: 50%;
 }
 
-.inclus-list,
-.non-inclus-list {
+.inclus-list, .non-inclus-list {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
-.inclus-list li,
-.non-inclus-list li {
-  padding: 12px 0;
-  padding-left: 30px;
+.inclus-list li, .non-inclus-list li {
+  padding: 0.45rem 0 0.45rem 1.2rem;
+  font-size: 10.5pt;
+  line-height: 1.6;
   position: relative;
   border-bottom: 1px solid #f1f5f9;
 }
 
-.inclus-list li:last-child,
-.non-inclus-list li:last-child {
+.inclus-list li:last-child, .non-inclus-list li:last-child {
   border-bottom: none;
 }
 
 .inclus-list li::before {
-  content: '✓';
+  content: "✓";
   position: absolute;
   left: 0;
-  color: #667eea;
-  font-weight: bold;
-  font-size: 1.1rem;
+  top: 0.1rem;
+  color: #333;
+  font-weight: 800;
 }
 
 .non-inclus-list li::before {
-  content: '✗';
+  content: "✗";
   position: absolute;
   left: 0;
-  color: #667eea;
-  font-weight: bold;
-  font-size: 1.1rem;
+  top: 0.1rem;
+  color: #333;
+  font-weight: 800;
 }
 
+/* Prix */
 .prix-section {
   text-align: center;
-  margin: 40px 0;
-  padding: 30px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 20px;
+  padding: 2.2rem 2rem;
+  background: #f8f9fa;
+  margin: 2.4rem 0;
+  border-radius: 6px;
 }
 
 .prix-montant {
-  font-size: 3rem;
-  font-weight: 200;
-  margin-bottom: 10px;
+  font-size: 2.3rem;
+  color: #2c3e50;
+  font-weight: 300;
+  margin-bottom: 0.4rem;
 }
 
 .prix-detail {
-  font-size: 1.1rem;
-  opacity: 0.9;
+  color: #666;
+  font-size: 1.05rem;
 }
 
+.chambre-simple {
+  margin-top: 0.8rem;
+  color: #666;
+  font-size: 1rem;
+}
+
+/* Hôtels */
 .hotels-section {
-  background: #f8fafc;
-  padding: 30px;
-  border-radius: 15px;
+  margin: 2.6rem 0;
 }
 
 .hotels-intro {
   text-align: center;
-  margin-bottom: 30px;
-  font-size: 1.1rem;
+  margin-bottom: 1.6rem;
+  color: #555;
+  font-size: 11pt;
 }
 
 .hotels-list {
   display: grid;
-  gap: 20px;
+  gap: 1.2rem;
+  max-width: 760px;
+  margin: 0 auto;
 }
 
 .hotel-item {
+  padding: 1.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
   background: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
 .hotel-name {
-  font-size: 1.2rem;
   font-weight: 600;
-  margin-bottom: 10px;
+  color: #2c3e50;
+  margin-bottom: 0.35rem;
+  font-size: 11pt;
+}
+
+.hotel-description {
+  color: #666;
+  font-size: 10pt;
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+}
+
+.hotel-stars {
+  color: #d4a574;
+  font-size: 10pt;
 }
 
 .hotel-image {
@@ -1066,85 +1168,115 @@ ${JSON.stringify(editedData, null, 2)}`;
   height: 200px;
   object-fit: cover;
   border-radius: 8px;
-  margin-top: 15px;
+  margin-top: 1rem;
 }
 
+.note-simple {
+  background: #f8f9fa;
+  padding: 1.2rem;
+  border-left: 3px solid var(--header-grad-a);
+  margin: 1.6rem 0;
+  font-size: 10pt;
+  color: #555;
+}
+
+/* Footer */
 .footer-section {
-  text-align: center;
-  padding: 60px 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--header-grad-a);
   color: white;
-  margin-top: 60px;
+  padding: 2.4rem 2rem;
+  margin-top: 3rem;
+  text-align: center;
 }
 
 .footer-section h2 {
-  font-size: 2.5rem;
-  font-weight: 200;
-  margin-bottom: 15px;
-  text-transform: uppercase;
-  letter-spacing: 2px;
+  font-size: 1.7rem;
+  font-weight: 300;
+  margin-bottom: 0.4rem;
+  text-transform: capitalize;
 }
 
 .footer-section p {
-  font-size: 1.1rem;
-  opacity: 0.9;
+  font-size: 1.05rem;
+  font-weight: 300;
+  opacity: 0.95;
 }
 
+/* Responsive */
 @media (max-width: 768px) {
   .hero-content h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
+  }
+  
+  .hero-content p {
+    font-size: 1rem;
+  }
+  
+  .main-content {
+    padding: 1rem 0.5rem;
+  }
+  
+  .section-title {
+    font-size: 1.2rem;
   }
   
   .itineraire-table table {
-    font-size: 0.9rem;
+    font-size: 9pt;
+  }
+  
+  .itineraire-table th,
+  .itineraire-table td {
+    padding: 0.8rem;
   }
   
   .prix-montant {
-    font-size: 2.5rem;
+    font-size: 2rem;
+  }
+  
+  .services-table td {
+    padding: 1rem;
   }
   
   .footer-section h2 {
-    font-size: 2rem;
+    font-size: 1.4rem;
+  }
+  
+  .footer-section {
+    padding: 1.8rem 1rem;
   }
 }
 </style>
 </head>
 <body>
 <div class="doc">
-  <!-- Header -->
+  <!-- Header - Réplica exacta del diseño de Previa2 -->
   <div class="hero-header">
     <div class="hero-top">
       <div class="brand-inline">
         <img src="${editedData.logoUrl}" alt="Logo Flowtrip">
-        <span class="brand-name">FLOWTRIP</span>
+        <span class="brand-name">${editedData.brandName || "FLOWTRIP"}</span>
       </div>
-      <div class="client-name">Mme Doulcet</div>
+      <div class="client-name">${editedData.clientName || "Mme Doulcet"}</div>
     </div>
     <div class="hero-content">
       <h1>${editedData.titreVoyage}</h1>
-      <p>Programme sur mesure — ${
-        editedData.table_itineraire_bref.length
-      } jours</p>
+      <p>${editedData.programDescription || `Programme sur mesure — ${editedData.table_itineraire_bref.length} jours`}</p>
     </div>
   </div>
 
-  <!-- Contenido Principal -->
+  <!-- Contenido Principal - Estructura idéntica a Previa2 -->
   <div class="main-content">
     <!-- Vos Envies -->
     <section class="section">
-      <h2 class="section-title">${
-        editedData.titre_vos_envies || "VOS ENVIES"
-      }</h2>
-      <div class="border border-gray-400 h-24 p-2">
+      <h2 class="section-title">${editedData.titre_vos_envies || "VOS ENVIES"}</h2>
+      <div style="border: 1px solid #d1d5db; min-height: 96px; padding: 16px; border-radius: 8px; background: #fafafa;">
         ${editedData.vos_envies || "Vos envies seront ajoutés ici..."}
       </div>
     </section>
 
     <!-- Itinéraire -->
     <section class="section">
-      <h2 class="section-title">${
-        editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE"
-      }</h2>
+      <h2 class="section-title">${editedData.titre_itineraire_bref || "VOTRE ITINÉRAIRE"}</h2>
       <div class="itineraire-table">
         <table>
           <thead>
@@ -1174,31 +1306,21 @@ ${JSON.stringify(editedData, null, 2)}`;
         </table>
       </div>
       <div class="note-simple">
-        <strong>Personnalisation :</strong> ${
-          editedData.personalisationText ||
-          "Ce programme peut être ajusté en fonction de vos souhaits."
-        }
+        <strong>Personnalisation :</strong> ${editedData.personalisationText || "Ce programme peut être ajusté en fonction de vos souhaits."}
       </div>
     </section>
 
     <!-- Programme détaillé -->
     <section class="section programme-section">
-      <h2 class="section-title">${
-        editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"
-      }</h2>
+      <h2 class="section-title">${editedData.titre_programme_detaille || "PROGRAMME DÉTAILLÉ"}</h2>
       <div class="programme-text">
-        ${
-          editedData.programme_detaille ||
-          "<p>Description du programme à venir</p>"
-        }
+        ${editedData.programme_detaille || "<p>Description du programme à venir</p>"}
       </div>
     </section>
 
     <!-- Services -->
     <section class="section">
-      <h2 class="section-title">${
-        editedData.detailVoyageTitle || "Détail de Votre Voyage"
-      }</h2>
+      <h2 class="section-title">${editedData.detailVoyageTitle || "Détail de Votre Voyage"}</h2>
       <div class="services-table">
         <table>
           <thead>
@@ -1211,20 +1333,16 @@ ${JSON.stringify(editedData, null, 2)}`;
             <tr>
               <td>
                 <ul class="inclus-list">
-                  ${
-                    (editedData.inclus || [])
-                      .map((item) => `<li>${item}</li>`)
-                      .join("") || "<li>Aucun service inclus</li>"
-                  }
+                  ${(editedData.inclus || [])
+                    .map((item) => `<li>${item}</li>`)
+                    .join("") || "<li>Aucun service inclus</li>"}
                 </ul>
               </td>
               <td>
                 <ul class="non-inclus-list">
-                  ${
-                    (editedData.non_inclus || [])
-                      .map((item) => `<li>${item}</li>`)
-                      .join("") || "<li>Aucun service non inclus</li>"
-                  }
+                  ${(editedData.non_inclus || [])
+                    .map((item) => `<li>${item}</li>`)
+                    .join("") || "<li>Aucun service non inclus</li>"}
                 </ul>
               </td>
             </tr>
@@ -1235,58 +1353,36 @@ ${JSON.stringify(editedData, null, 2)}`;
 
     <!-- Prix -->
     <section class="prix-section">
-      <div class="prix-montant">${
-        editedData.prix_par_personne || "À confirmer"
-      }</div>
-      <div class="prix-detail">${
-        editedData.prixDetailText || "par personne (base 30)"
-      }</div>
-      ${
-        editedData.chambre_simple
-          ? `
-      <div class="chambre-simple" style="margin-top: 15px; font-size: 1rem;">
-        <strong>${
-          editedData.titre_chambre_simple || "Chambre simple"
-        }:</strong> ${editedData.chambre_simple}
+      <div class="prix-montant">${editedData.prix_par_personne || "À confirmer"}</div>
+      <div class="prix-detail">${editedData.prixDetailText || "par personne (base 30)"}</div>
+      ${editedData.chambre_simple ? `
+      <div class="chambre-simple">
+        <strong>${editedData.titre_chambre_simple || "Chambre simple"}:</strong> ${editedData.chambre_simple}
       </div>
-      `
-          : ""
-      }
+      ` : ""}
     </section>
 
     <!-- Hébergements -->
     <section class="section hotels-section">
-      <h2 class="section-title">${
-        editedData.titre_hebergements || "VOS HÉBERGEMENTS"
-      }</h2>
+      <h2 class="section-title">${editedData.titre_hebergements || "VOS HÉBERGEMENTS"}</h2>
       <div class="hotels-intro">
-        <p>${
-          editedData.hotelsIntroText ||
-          "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."
-        }</p>
+        <p>${editedData.hotelsIntroText || "Hébergements sélectionnés pour leur charme, confort et situation privilégiée."}</p>
       </div>
       <div class="hotels-list">
-        ${editedData.hebergements_personnalises
+        ${(editedData.hebergements_personnalises || [])
           .map(
             (hotel, index) => `
         <div class="hotel-item">
           <div class="hotel-name">${hotel.nom}</div>
           <div class="hotel-description">${hotel.description}</div>
-          ${
-            hotel.images[0]
-              ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">`
-              : ""
-          }
+          ${hotel.images && hotel.images[0] ? `<img src="${hotel.images[0]}" alt="${hotel.nom}" class="hotel-image">` : ""}
         </div>
         `
           )
           .join("")}
       </div>
       <div class="note-simple">
-        ${
-          editedData.disponibilityText ||
-          "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."
-        }
+        ${editedData.disponibilityText || "Les hébergements sont sujets à disponibilité. Un établissement de catégorie équivalente sera proposé si nécessaire."}
       </div>
     </section>
   </div>

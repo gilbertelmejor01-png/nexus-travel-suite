@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import "./proposition.css"; // CSS del template
+import "./proposition.css"
 
 interface ItineraryEntry {
   jour: string;
@@ -825,238 +825,266 @@ ${JSON.stringify(editedData, null, 2)}`;
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${editedData.titreVoyage || "Proposition de Voyage"} — Flowtrip</title>
 <style>
-/* Estilos CSS para la plantilla Previa3 */
-.document {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #fff;
-  color: #0f172a;
-  line-height: 1.6;
-  font-size: 15px;
-  max-width: 1200px;
-  margin: 0 auto;
+/* Estilos EXACTOS de Previa3.tsx basados en proposition.css */
+:root {
+  --brand-bg: #195f96; /* Bleu header */
+  --brand-green: #06a37a; /* Vert pétard Inclus */
+  --brand-red: #e53935; /* Rouge vif Non inclus */
+  --day-blue: #1a74aa; /* Bleu pour libellés Jour */
+  --text: #0f172a;
+  --muted: #64748b;
+  --paper: #ffffff;
+  --paper-alt: #f8fafc;
+  --stroke: #e2e8f0;
 }
 
+.document {
+  font-family: Arial, sans-serif;
+  background: var(--paper-alt);
+  color: var(--text);
+  font-size: 11pt;
+  line-height: 1.6;
+  max-width: 210mm;
+  margin: 16px auto;
+  background: var(--paper);
+  box-shadow: 0 0 24px rgba(2, 6, 23, 0.08);
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+/* Header */
 .cover {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--brand-bg);
   color: white;
-  padding: 40px 20px;
-  text-align: center;
+  padding: 26px 24px 72px 24px;
 }
 
 .cover-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
+  align-items: flex-start;
+  margin-bottom: 10px;
 }
 
 .brand {
   display: flex;
+  gap: 8px;
   align-items: center;
-  gap: 15px;
+  margin-left: -6px;
+  margin-top: -12px;
 }
 
 .brand img {
-  height: 50px;
-  filter: brightness(0) invert(1);
+  height: 38px;
 }
 
 .brand h3 {
-  font-size: 1.8rem;
-  font-weight: 300;
-  letter-spacing: 3px;
+  font-size: 0.72rem;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
-  margin: 0;
+  line-height: 1.1;
+  margin: 0 0 1px 0;
+  color: white;
 }
 
 .brand p {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  margin: 0;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  margin: 2px 0 0 0;
+  color: white;
 }
 
 .ref {
   text-align: right;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  margin-right: -6px;
+  margin-top: -12px;
 }
 
 .ref div:first-child {
-  font-size: 1.2rem;
-  font-weight: 600;
-  margin-bottom: 5px;
+  font-size: 0.62rem;
+  font-weight: bold;
+  margin-bottom: 3px;
+  color: white;
 }
 
 .ref div:last-child {
-  font-size: 0.9rem;
-  opacity: 0.9;
+  font-size: 0.62rem;
+  color: white;
 }
 
 .cover h1 {
-  font-size: 3.5rem;
+  font-size: 2.28rem;
   font-weight: 200;
-  margin: 0;
-  letter-spacing: -1px;
+  text-align: center;
+  margin: 30px 0 0;
+  color: white;
 }
 
+/* Layout */
 .layout {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 40px;
-  padding: 40px;
+  grid-template-columns: 210px 1fr;
 }
 
 .sidebar {
-  background: #f8fafc;
-  padding: 30px;
-  border-radius: 15px;
-  height: fit-content;
+  background: var(--paper-alt);
+  border-right: 1px solid var(--stroke);
+  padding: 18px;
 }
 
-.side-block {
-  margin-bottom: 30px;
+.side-block + .side-block {
+  margin-top: 16px;
 }
 
 .side-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 15px;
-  color: #374151;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12rem;
+  color: var(--muted);
+  margin-bottom: 8px;
 }
 
 .pill {
-  background: #667eea;
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  display: inline-block;
-  font-size: 0.9rem;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  color: var(--text);
 }
 
 .price-card {
-  background: white;
-  padding: 20px;
-  border-radius: 10px;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 14px 12px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
 }
 
 .price-main {
+  font-family: Georgia, serif;
   font-size: 1.5rem;
-  font-weight: 600;
-  color: #667eea;
-  margin-bottom: 5px;
+  font-weight: 300;
+  color: var(--text);
 }
 
 .price-sub {
-  font-size: 0.9rem;
-  color: #6b7280;
+  font-size: 0.95rem;
+  color: var(--muted);
 }
 
+/* Sections */
 .content {
-  padding: 0;
+  padding: 18px;
 }
 
 .section {
-  margin-bottom: 50px;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 14px;
 }
 
 .sec-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 12px;
 }
 
 .sec-title {
-  font-size: 1.8rem;
-  font-weight: 300;
-  color: #0f172a;
-  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
 }
 
 .badge {
-  background: #667eea;
-  color: white;
-  padding: 5px 15px;
-  border-radius: 15px;
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef6ff;
+  color: #1e40af;
+  border: 1px solid #dbeafe;
 }
 
+/* Timeline Itinéraire */
 .timeline {
-  border-left: 2px solid #667eea;
-  padding-left: 20px;
-  margin-left: 10px;
+  display: grid;
+  grid-template-columns: 110px 1fr 90px;
+  gap: 10px;
+  width: 100%;
 }
 
 .row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 20px;
-  margin-bottom: 30px;
-  position: relative;
-}
-
-.row::before {
-  content: '';
-  position: absolute;
-  left: -26px;
-  top: 0;
-  width: 10px;
-  height: 10px;
-  background: #667eea;
-  border-radius: 50%;
+  display: contents;
 }
 
 .t-jour {
-  font-weight: 600;
-  color: #667eea;
-  min-width: 200px;
+  font-weight: 800;
+  color: var(--day-blue);
+  font-size: 0.95rem;
+}
+
+.t-program {
+  border-left: 2px dashed var(--stroke);
+  padding-left: 10px;
 }
 
 .t-program p {
-  margin: 0;
-  line-height: 1.6;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  color: var(--text);
 }
 
 .t-nuit {
-  font-style: italic;
-  color: #6b7280;
-  min-width: 100px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  text-align: right;
 }
 
+/* Programme détaillé */
 .prog-body {
-  line-height: 1.8;
+  line-height: 1.6;
+  color: var(--text);
+  font-size: 0.95rem;
 }
 
+.prog-body p {
+  text-align: justify;
+  margin-bottom: 12px;
+}
+
+/* Services */
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 30px;
+  gap: 12px;
 }
 
 .card {
-  background: white;
+  border: 1px solid var(--stroke);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
 .card-head {
-  padding: 20px;
+  padding: 10px 14px;
   color: white;
-  font-weight: 600;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1rem;
 }
 
-.card-head.green {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.card-head.red {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+.card-head.green, .card-head.red {
+  background: var(--brand-bg) !important;
+  color: #fff;
 }
 
 .card-body {
-  padding: 20px;
+  padding: 12px 14px;
+  background: var(--paper);
 }
 
 .list-clean {
@@ -1066,121 +1094,140 @@ ${JSON.stringify(editedData, null, 2)}`;
 }
 
 .list-clean li {
-  padding: 12px 0;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 7px 0 7px 18px;
+  border-bottom: 1px dotted var(--stroke);
   position: relative;
-  padding-left: 30px;
+  font-size: 0.95rem;
+  color: var(--text);
 }
 
 .list-clean li:last-child {
-  border-bottom: none;
+  border-bottom: 0;
 }
 
 .list-clean li::before {
-  content: '✓';
+  content: "✓";
   position: absolute;
   left: 0;
-  color: #10b981;
-  font-weight: bold;
-  font-size: 1.1rem;
+  color: var(--brand-bg);
+  font-weight: 800;
 }
 
 .list-clean.neg li::before {
-  content: '✗';
-  color: #ef4444;
+  content: "✗";
+  color: var(--brand-bg);
 }
 
+/* Hôtels */
 .hotels-intro {
-  text-align: center;
-  margin-bottom: 30px;
-  font-size: 1.1rem;
-  color: #6b7280;
+  background: #f8f9fa;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border-left: 4px solid var(--day-blue);
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: var(--text);
 }
 
 .hotels-list {
   display: grid;
-  gap: 20px;
+  gap: 12px;
 }
 
 .hotel-item {
-  background: white;
-  padding: 20px;
+  background: var(--paper);
+  border: 1px solid var(--stroke);
   border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 14px;
+  margin-bottom: 10px;
 }
 
 .hotel-name {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 10px;
-  color: #0f172a;
+  margin-bottom: 8px;
+  color: var(--text);
 }
 
 .hotel-description {
-  color: #6b7280;
-  margin-bottom: 15px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 10px;
 }
 
 .hotel-image {
   width: 100%;
+  border-radius: 8px;
+  margin-top: 10px;
   height: 200px;
   object-fit: cover;
-  border-radius: 8px;
 }
 
 .note-box {
-  background: #f8fafc;
-  padding: 20px;
-  border-radius: 10px;
-  margin-top: 30px;
+  padding: 8px 0;
+  font-style: italic;
+  color: #555;
   font-size: 0.9rem;
-  color: #6b7280;
 }
 
+/* CTA */
 .cta {
   text-align: center;
-  padding: 60px 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 22px;
+  background: var(--brand-bg);
   color: white;
-  margin-top: 60px;
 }
 
 .cta h2 {
-  font-size: 2.5rem;
-  font-weight: 200;
-  margin-bottom: 15px;
+  margin-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 0.6px;
+  font-size: 1.8rem;
+  font-weight: 200;
 }
 
 .cta p {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   opacity: 0.9;
+  font-weight: 300;
 }
 
+/* Responsive design */
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: 1fr;
-    gap: 20px;
-    padding: 20px;
   }
-  
+
+  .content {
+    padding: 12px;
+  }
+
   .cover h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
   }
-  
+
   .grid-2 {
     grid-template-columns: 1fr;
-    gap: 20px;
   }
-  
-  .row {
+
+  .timeline {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 8px;
   }
-  
+
+  .t-program {
+    border-left: none;
+    padding-left: 0;
+    border-top: 2px dashed var(--stroke);
+    padding-top: 8px;
+  }
+
   .cta h2 {
-    font-size: 2rem;
+    font-size: 1.4rem;
+  }
+
+  .sidebar {
+    padding: 12px;
   }
 }
 </style>
