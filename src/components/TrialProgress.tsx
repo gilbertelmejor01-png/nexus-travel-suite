@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, DocumentData } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,15 @@ interface TrialProgressProps {
   collapsed?: boolean;
 }
 
+interface TrialData {
+  trial_gratuito?: boolean;
+  trial_fecha_inicio?: any;
+  trial_fecha_fin?: any;
+  trial_activo?: boolean;
+}
+
 export function TrialProgress({ collapsed = false }: TrialProgressProps) {
-  const [trialData, setTrialData] = useState<{
-    trial_gratuito: boolean;
-    trial_fecha_inicio: any;
-    trial_fecha_fin: any;
-    trial_activo: boolean;
-  } | null>(null);
+  const [trialData, setTrialData] = useState<TrialData | null>(null);
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [progressPercentage, setProgressPercentage] = useState(100);
 
@@ -27,7 +29,14 @@ export function TrialProgress({ collapsed = false }: TrialProgressProps) {
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          setTrialData(userData);
+          // Extraer solo las propiedades que necesitamos y asignar al estado
+          const trialDataFromFirebase: TrialData = {
+            trial_gratuito: userData.trial_gratuito,
+            trial_fecha_inicio: userData.trial_fecha_inicio,
+            trial_fecha_fin: userData.trial_fecha_fin,
+            trial_activo: userData.trial_activo,
+          };
+          setTrialData(trialDataFromFirebase);
           
           if (userData.trial_gratuito && userData.trial_activo && userData.trial_fecha_fin) {
             const now = new Date();
