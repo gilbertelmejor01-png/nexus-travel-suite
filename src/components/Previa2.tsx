@@ -800,7 +800,7 @@ ${JSON.stringify(editedData, null, 2)}`;
 
     setGeneratingPdf(true);
     try {
-      const response = await fetch("http://38.242.224.81:3000/generar-pdf", {
+      const response = await fetch("/api/generar-pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
