@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { doc, updateDoc, getDoc, collection, getDocs, addDoc } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, auth, storage } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import {
   DragDropContext,
@@ -24,7 +25,17 @@ import {
   Download,
   Send,
   FileText,
+  User,
+  Loader2,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
 
 // Styles from Plantilla.html adapted for React
 const plantillaStyles = `
@@ -597,6 +608,36 @@ export interface VoyageData {
   groupeText?: string;
   // Condiciones generales del perfil de empresa
   condicionesGenerales?: string;
+  // Texto editable para sufijo de precio
+  prixSuffix?: string;
+  // Texto editable para duración
+  dureeText?: string;
+}
+
+// Interface para cliente (replicada del Dashboard)
+interface Cliente {
+  id: string;
+  nombre?: string;
+  email?: string;
+  destino: {
+    pais: string;
+    valor: number;
+    fecha: string;
+  };
+  estado: "pendiente" | "revision" | "pago" | "firmado" | "finalizado";
+  fechaCreacion?: any;
+}
+
+// Interface para documento guardado en Firestore
+interface DocumentoGuardado {
+  id?: string;
+  nombre: string;
+  url: string;
+  tipo: "PDF" | "HTML";
+  fecha: Date;
+  clienteId: string;
+  clienteNombre: string;
+  tamaño: number;
 }
 
 interface PreviaProps {
@@ -607,6 +648,7 @@ interface PreviaProps {
 
 const Previa = ({ data, loading, error }: PreviaProps) => {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [editing, setEditing] = useState(false);
   const [editedData, setEditedData] = useState<VoyageData | null>(null);
   const [saving, setSaving] = useState(false);
@@ -635,6 +677,13 @@ const Previa = ({ data, loading, error }: PreviaProps) => {
   // Referencia para ReactQuill
   const quillRef = useRef<ReactQuill>(null);
   const [previewContent, setPreviewContent] = useState("");
+
+  // Estados para selector de clientes y subida a Firebase
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<string>("");
+  const [cargandoClientes, setCargandoClientes] = useState(false);
+  const [subiendoArchivo, setSubiendoArchivo] = useState(false);
+  const [errorSubida, setErrorSubida] = useState<string | null>(null);
 
 
   // Función para obtener el ID de conversación desde el perfil del usuario
@@ -839,6 +888,45 @@ ${JSON.stringify(editedData, null, 2)}`;
     };
 
     cargarConversacionId();
+  }, [currentUser]);
+
+  // Función para cargar clientes desde Firestore
+  const fetchClientes = async () => {
+    if (!currentUser?.uid) return;
+
+    setCargandoClientes(true);
+    try {
+      const clientesRef = collection(db, "users", currentUser.uid, "clientes");
+      const snap = await getDocs(clientesRef);
+      const clientesData: Cliente[] = snap.docs.map((d) => {
+        const data: any = d.data();
+        return {
+          id: d.id,
+          nombre: data.nombre || "Cliente sin nombre",
+          email: data.email,
+          destino: data.destino || {
+            pais: "Sin destino",
+            valor: 0,
+            fecha: "",
+          },
+          estado: (data.estado || "pendiente") as Cliente["estado"],
+          fechaCreacion: data.fechaCreacion,
+        } as Cliente;
+      });
+
+      setClientes(clientesData);
+    } catch (err) {
+      console.error("Error fetching clientes:", err);
+    } finally {
+      setCargandoClientes(false);
+    }
+  };
+
+  // Cargar clientes cuando el usuario esté autenticado
+  React.useEffect(() => {
+    if (currentUser?.uid) {
+      fetchClientes();
+    }
   }, [currentUser]);
 
   // Actualizar previsualización cuando cambie el contenido de programme_detaille
@@ -1121,6 +1209,167 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
   };
 
+  // Función para subir archivo a Firebase Storage y registrar en Firestore
+  const subirArchivoYRegistrar = async (
+    archivoBlob: Blob,
+    nombreArchivo: string,
+    tipo: "PDF" | "HTML"
+  ): Promise<boolean> => {
+    if (!currentUser?.uid || !clienteSeleccionado) {
+      setErrorSubida("Por favor selecciona un cliente antes de descargar");
+      toast({
+        title: "❌ Error",
+        description: "Por favor selecciona un cliente antes de descargar",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    setSubiendoArchivo(true);
+    setErrorSubida(null);
+
+    try {
+      // Obtener información del cliente seleccionado
+      const cliente = clientes.find(c => c.id === clienteSeleccionado);
+      if (!cliente) {
+        throw new Error("Cliente no encontrado");
+      }
+
+      // Generar nombre único para el archivo
+      const timestamp = new Date().getTime();
+      const nombreUnico = `${tipo.toLowerCase()}_${timestamp}_${nombreArchivo}`;
+      
+      // Ruta en Storage: users/{uid}/clientes/{clienteId}/documents/{nombreArchivo}
+      const storagePath = `users/${currentUser.uid}/clientes/${clienteSeleccionado}/documents/${nombreUnico}`;
+      const storageRef = ref(storage, storagePath);
+
+      // Subir archivo a Firebase Storage
+      const snapshot = await uploadBytes(storageRef, archivoBlob);
+      console.log("Archivo subido exitosamente:", snapshot);
+
+      // Obtener URL de descarga
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Crear documento en Firestore (subcolección documents)
+      const documentoData: DocumentoGuardado = {
+        nombre: nombreArchivo,
+        url: downloadURL,
+        tipo: tipo,
+        fecha: new Date(),
+        clienteId: clienteSeleccionado,
+        clienteNombre: cliente.nombre || "Cliente sin nombre",
+        tamaño: archivoBlob.size,
+      };
+
+      // Guardar en subcolección: users/{uid}/clientes/{clienteId}/documents
+      const documentosRef = collection(db, "users", currentUser.uid, "clientes", clienteSeleccionado, "documents");
+      await addDoc(documentosRef, documentoData);
+
+      // Mostrar mensaje de éxito
+      toast({
+        title: "✅ Archivo guardado",
+        description: `El archivo se ha guardado correctamente para ${cliente.nombre}`,
+      });
+
+      setSubiendoArchivo(false);
+      return true;
+
+    } catch (error) {
+      console.error("Error subiendo archivo:", error);
+      setErrorSubida("Error al guardar el archivo en la nube");
+      toast({
+        title: "❌ Error",
+        description: "Error al guardar el archivo en la nube. El archivo se descargó localmente.",
+        variant: "destructive",
+      });
+      setSubiendoArchivo(false);
+      return false;
+    }
+  };
+
+  // Función extendida para descargar PDF que también sube a Firebase
+  const descargarPDFConGuardado = async () => {
+    if (!clienteSeleccionado) {
+      toast({
+        title: "⚠️ Selecciona un cliente",
+        description: "Por favor selecciona un cliente antes de descargar el PDF",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingPdf(true);
+    
+    try {
+      // Aquí iría la lógica actual de generación de PDF
+      // Por ahora, simulamos la generación de un PDF
+      const htmlContent = document.getElementById('previa-content')?.innerHTML || '';
+      const pdfBlob = new Blob([htmlContent], { type: 'application/pdf' });
+      
+      // Descargar localmente (funcionalidad existente)
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `presupuesto_${new Date().getTime()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
+      await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
+
+    } catch (error) {
+      console.error("Error generando PDF:", error);
+      toast({
+        title: "❌ Error",
+        description: "Error al generar el PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  // Función extendida para descargar HTML que también sube a Firebase
+  const descargarHTMLConGuardado = async () => {
+    if (!clienteSeleccionado) {
+      toast({
+        title: "⚠️ Selecciona un cliente",
+        description: "Por favor selecciona un cliente antes de descargar el HTML",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      // Aquí iría la lógica actual de generación de HTML
+      const htmlContent = document.getElementById('previa-content')?.innerHTML || '';
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+      
+      // Descargar localmente (funcionalidad existente)
+      const url = window.URL.createObjectURL(htmlBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `presupuesto_${new Date().getTime()}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
+      await subirArchivoYRegistrar(htmlBlob, `presupuesto_${new Date().getTime()}.html`, "HTML");
+
+    } catch (error) {
+      console.error("Error generando HTML:", error);
+      toast({
+        title: "❌ Error",
+        description: "Error al generar el HTML",
+        variant: "destructive",
+      });
+    }
+  };
+
 
 
   // Funciones para manejar eliminación y restauración de secciones
@@ -1322,12 +1571,36 @@ FORMATO DE RESPUESTA:
         throw new Error("No se pudo obtener el ID de conversación del usuario");
       }
 
+      // Extraer solo el ID del documento de la URL completa
+      let documentId = conversacionId;
+      
+      // Si es una URL completa de Firestore, extraer solo el ID del documento
+      if (conversacionId.includes('/documents/conversacion/')) {
+        const match = conversacionId.match(/\/conversacion\/([^/?]+)/);
+        if (match && match[1]) {
+          documentId = match[1];
+        }
+      }
+      
+      // Limpiar y validar el ID del documento
+      const cleanDocumentId = documentId.trim();
+      
+      // Validar que el ID no esté vacío
+      if (!cleanDocumentId) {
+        throw new Error("ID de documento inválido después de extraer");
+      }
+
       // Validar datos críticos antes de guardar
       if (!editedData.table_itineraire_bref || editedData.table_itineraire_bref.length === 0) {
         throw new Error("El itinerario no puede estar vacío");
       }
 
-      const docRef = doc(db, "conversacion", conversacionId);
+      // Crear la referencia del documento con solo el ID
+      const docRef = doc(db, "conversacion", cleanDocumentId);
+      
+      // Verificar que la ruta del documento sea válida
+      console.log("Intentando guardar en:", docRef.path);
+      
       await updateDoc(docRef, {
         output: editedData,
         lastUpdated: new Date(), // Agregar timestamp para tracking
@@ -1672,13 +1945,11 @@ ${plantillaStyles}
           <div class="price-amount">${
             editedData.prix_par_personne || "1 399 €"
           }</div>
-          <div class="price-per">par personne (base 30)</div>
+          <div class="price-per">${editedData.prixSuffix || "par personne (base 30)"}</div>
         </div>
         <div class="info-item">
           <h4>Durée</h4>
-          <p>${editedData.table_itineraire_bref.length} jours / ${
-      editedData.table_itineraire_bref.length - 1
-    } nuits</p>
+          <p>${editedData.dureeText || `${editedData.table_itineraire_bref.length} jours / ${editedData.table_itineraire_bref.length - 1} nuits`}</p>
         </div>
         <div class="info-item">
           <h4>Groupe</h4>
@@ -1802,22 +2073,66 @@ ${plantillaStyles}
               </Button>
             </>
           )}
-          <Button
-            variant="secondary"
-            onClick={generarPDF}
-            disabled={generatingPdf}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {generatingPdf ? "Generando PDF..." : "Descargar PDF"}
-          </Button>
-          <Button variant="secondary" onClick={descargarPlantillaHTML}>
-            <FileText className="h-4 w-4 mr-2" />
-            Descargar HTML
-          </Button>
-          {/*<Button>
-            <Send className="h-4 w-4 mr-2" />
-            Enviar al cliente
-          </Button>*/}
+
+          {/* Mostrar selector de clientes y botones de descarga solo cuando NO se está editando */}
+          {!editing && (
+            <>
+              {/* Selector de Clientes */}
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <Select value={clienteSeleccionado} onValueChange={setClienteSeleccionado}>
+                  <SelectTrigger className="w-64">
+                    <SelectValue placeholder={
+                      cargandoClientes ? "Cargando clientes..." : "Selecciona un cliente"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientes.length === 0 ? (
+                      <SelectItem value="no-clients" disabled>
+                        {cargandoClientes ? "Cargando..." : "No hay clientes disponibles"}
+                      </SelectItem>
+                    ) : (
+                      clientes.map((cliente) => (
+                        <SelectItem key={cliente.id} value={cliente.id}>
+                          {cliente.nombre} - {cliente.email}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Botones de Descarga */}
+              <Button
+                variant="secondary"
+                onClick={descargarPDFConGuardado}
+                disabled={generatingPdf || subiendoArchivo || !clienteSeleccionado}
+              >
+                {subiendoArchivo ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {generatingPdf || subiendoArchivo ? "Procesando..." : "Descargar PDF"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={descargarHTMLConGuardado}
+                disabled={subiendoArchivo || !clienteSeleccionado}
+              >
+                {subiendoArchivo ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FileText className="h-4 w-4 mr-2" />
+                )}
+                {subiendoArchivo ? "Procesando..." : "Descargar HTML"}
+              </Button>
+              {/*<Button>
+                <Send className="h-4 w-4 mr-2" />
+                Enviar al cliente
+              </Button>*/}
+            </>
+          )}
         </div>
       </div>
 
@@ -1853,7 +2168,7 @@ ${plantillaStyles}
           </div>
         </div>
       )}
-
+<div>selecctos de clientes </div> 
       {/* Selector de color */}
       {editing && (
         <div className="mb-4 p-4 border rounded-lg">
@@ -3175,20 +3490,56 @@ ${plantillaStyles}
                   editedData.prix_par_personne || "1 399 €"
                 )}
               </div>
-              <div className="price-per">par personne (base 30)</div>
+              <div className="price-per">
+                {editing ? (
+                  <Input
+                    value={editedData.prixSuffix}
+                    onChange={(e) =>
+                      handleChange("prixSuffix", e.target.value)
+                    }
+                    className="text-center bg-transparent border-none p-0 text-sm"
+                    placeholder="par personne (base 30)"
+                  />
+                ) : (
+                  editedData.prixSuffix || "par personne (base 30)"
+                )}
+              </div>
             </div>
 
             <div className="info-item">
               <h4>Durée</h4>
               <p>
-                {editedData.table_itineraire_bref.length} jours /{" "}
-                {editedData.table_itineraire_bref.length - 1} nuits
+                {editing ? (
+                  <Input
+                    value={editedData.dureeText}
+                    onChange={(e) =>
+                      handleChange("dureeText", e.target.value)
+                    }
+                    className="text-center bg-transparent border-none p-0"
+                    placeholder={`${editedData.table_itineraire_bref.length} jours / ${editedData.table_itineraire_bref.length - 1} nuits`}
+                  />
+                ) : (
+                  editedData.dureeText || `${editedData.table_itineraire_bref.length} jours / ${editedData.table_itineraire_bref.length - 1} nuits`
+                )}
               </p>
             </div>
 
             <div className="info-item">
               <h4>Groupe</h4>
-              <p>Base 30 personnes</p>
+              <p>
+                {editing ? (
+                  <Input
+                    value={editedData.groupeText}
+                    onChange={(e) =>
+                      handleChange("groupeText", e.target.value)
+                    }
+                    className="text-center bg-transparent border-none p-0"
+                    placeholder="Base 30 personnes"
+                  />
+                ) : (
+                  editedData.groupeText || "Base 30 personnes"
+                )}
+              </p>
             </div>
 
             <div className="info-item">

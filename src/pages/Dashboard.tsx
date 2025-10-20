@@ -45,6 +45,7 @@ import {
   getDocs,
   doc,
   updateDoc,
+  addDoc,
   Timestamp,
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -235,6 +236,16 @@ const Dashboard = () => {
   const openBudgetModal = (action: "edit" | "new", client?: string) => {
     setSelectedAction(action);
     setSelectedClient(client || null);
+    // Resetear el formulario cuando se abre el modal
+    if (action === "new") {
+      setNuevoPresupuesto({
+        nombre: "",
+        cliente: client || "",
+        destino: "",
+        valor: "",
+        estado: "pendiente",
+      });
+    }
     setShowBudgetModal(true);
   };
 
@@ -281,16 +292,43 @@ const Dashboard = () => {
     }
 
     try {
-      const esEdicion = selectedRow !== null;
+      const esEdicion = selectedAction === "edit" && selectedRow !== null;
       
       if (esEdicion) {
-        // Lógica para editar presupuesto existente
+        // Editar presupuesto existente en Firestore
+        const clienteRef = doc(db, "users", uid, "clientes", selectedRow);
+        await updateDoc(clienteRef, {
+          nombre: nuevoPresupuesto.nombre,
+          email: nuevoPresupuesto.cliente,
+          destino: {
+            pais: nuevoPresupuesto.destino,
+            valor: parseFloat(nuevoPresupuesto.valor),
+            fecha: new Date().toISOString().split('T')[0]
+          },
+          estado: nuevoPresupuesto.estado,
+          updatedAt: Timestamp.now()
+        });
+
         toast({
           title: "✅ Presupuesto actualizado",
           description: `Presupuesto de ${nuevoPresupuesto.cliente} actualizado exitosamente`,
         });
       } else {
-        // Lógica para crear nuevo presupuesto
+        // Crear nuevo presupuesto en Firestore
+        const clientesRef = collection(db, "users", uid, "clientes");
+        await addDoc(clientesRef, {
+          nombre: nuevoPresupuesto.nombre,
+          email: nuevoPresupuesto.cliente,
+          destino: {
+            pais: nuevoPresupuesto.destino,
+            valor: parseFloat(nuevoPresupuesto.valor),
+            fecha: new Date().toISOString().split('T')[0]
+          },
+          estado: nuevoPresupuesto.estado,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        });
+
         toast({
           title: "✅ Presupuesto creado",
           description: `Nuevo presupuesto para ${nuevoPresupuesto.cliente} creado exitosamente`,
@@ -361,7 +399,7 @@ const Dashboard = () => {
 
   // Función para editar presupuesto existente
   const editarPresupuestoExistente = () => {
-    if (!selectedClient || !selectedRow) return;
+    if (!selectedRow) return;
     
     // Encontrar el presupuesto seleccionado
     const presupuestoAEditar = data.ultimosPresupuestos.find(
@@ -386,8 +424,8 @@ const Dashboard = () => {
       estado: presupuestoAEditar.estado || "pendiente",
     });
     
-    // Cambiar a modo edición
-    setSelectedAction("new");
+    // Cambiar directamente al formulario de edición
+    setSelectedAction("edit");
     
     toast({
       title: "📝 Modo edición",
@@ -399,11 +437,14 @@ const Dashboard = () => {
   const crearPresupuestoParaCliente = () => {
     if (!selectedClient) return;
     
-    // Prellenar el formulario con el cliente seleccionado
-    setNuevoPresupuesto((prev) => ({
-      ...prev,
+    // Resetear el formulario pero prellenar el cliente
+    setNuevoPresupuesto({
+      nombre: "",
       cliente: selectedClient,
-    }));
+      destino: "",
+      valor: "",
+      estado: "pendiente",
+    });
     
     // Cambiar a modo nuevo presupuesto
     setSelectedAction("new");
@@ -424,8 +465,26 @@ const Dashboard = () => {
   // Función para manejar click en fila
   const handleRowClick = (presupuestoId: string, cliente: string) => {
     setSelectedRow(presupuestoId);
-    // Abrir modal con opciones para este cliente
-    openBudgetModal("edit", cliente);
+    setSelectedClient(cliente);
+    
+    // Encontrar el presupuesto seleccionado y prellenar el formulario
+    const presupuestoAEditar = data.ultimosPresupuestos.find(
+      (p) => p.id === presupuestoId
+    );
+    
+    if (presupuestoAEditar) {
+      setNuevoPresupuesto({
+        nombre: presupuestoAEditar.nombre || "",
+        cliente: presupuestoAEditar.cliente || "",
+        destino: presupuestoAEditar.destino || "",
+        valor: presupuestoAEditar.valor.toString() || "",
+        estado: presupuestoAEditar.estado || "pendiente",
+      });
+    }
+    
+    // Abrir modal directamente en modo edición
+    setSelectedAction("edit");
+    setShowBudgetModal(true);
   };
 
   if (!uid) return <div className="p-8 text-center">{t("loading_data")}</div>;
@@ -443,16 +502,14 @@ const Dashboard = () => {
   // Filtrar presupuestos
   const mapFiltroToEstado = (val: string) => {
     switch (val) {
-      case t("pending_status"):
+      case "pendiente":
         return "pendiente";
-      case t("in_review"):
+      case "revision":
         return "revision";
-      case t("signed"):
+      case "firmado":
         return "firmado";
-      case t("lost"):
+      case "perdido":
         return "perdido";
-      case t("due_today"):
-        return "vence_hoy";
       default:
         return "todos";
     }
@@ -546,8 +603,9 @@ const Dashboard = () => {
 
   const ESTADOS = [
     { value: "pendiente", label: t("pending_status"), color: "bg-yellow-500" },
-
+    { value: "revision", label: t("in_review"), color: "bg-blue-500" },
     { value: "firmado", label: t("signed"), color: "bg-green-500" },
+    { value: "pago", label: t("paid"), color: "bg-green-500" },
     { value: "finalizado", label: t("completed"), color: "bg-gray-500" },
   ];
 
@@ -715,17 +773,14 @@ const Dashboard = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">{t("all_statuses")}</SelectItem>
-                  <SelectItem value={t("pending_status")}>
+                  <SelectItem value="pendiente">
                     {t("pending_status")}
                   </SelectItem>
-                  <SelectItem value={t("signed")}>{t("signed")}</SelectItem>
-                  <SelectItem value={t("lost")}>{t("lost")}</SelectItem>
-                  <SelectItem value={t("due_today")}>
-                    
+                  <SelectItem value="revision">
+                    {t("in_review")}
                   </SelectItem>
-                  <SelectItem value={t("in_review")}>
-                   
-                  </SelectItem>
+                  <SelectItem value="firmado">{t("signed")}</SelectItem>
+                  <SelectItem value="perdido">{t("lost")}</SelectItem>
                 </SelectContent>
               </Select>
               <Button onClick={exportToCSV} variant="outline" size="sm">
@@ -932,33 +987,15 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            {selectedAction === "edit" && selectedClient && (
+            {(selectedAction === "edit" || selectedAction === "new") && (
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Acciones para el cliente: <strong>{selectedClient}</strong>
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  <Button
-                    onClick={editarPresupuestoExistente}
-                    className="w-full"
-                  >
-                    ✏️ Editar Presupuesto Existente
-                  </Button>
-                  <Button
-                    onClick={crearPresupuestoParaCliente}
-                    variant="outline"
-                    className="w-full"
-                  >
-                    ➕ Crear Nuevo Presupuesto
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {selectedAction === "new" && (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  {selectedClient ? `Crear presupuesto para ${selectedClient}` : "Crear un nuevo presupuesto"}
+                  {selectedAction === "edit" 
+                    ? `Editando presupuesto para ${selectedClient}` 
+                    : selectedClient 
+                      ? `Crear presupuesto para ${selectedClient}` 
+                      : "Crear un nuevo presupuesto"
+                  }
                 </p>
                 <div className="space-y-3">
                   <div>
@@ -979,7 +1016,7 @@ const Dashboard = () => {
                       placeholder="Nombre del cliente" 
                       value={nuevoPresupuesto.cliente}
                       onChange={(e) => handleNuevoPresupuestoChange("cliente", e.target.value)}
-                      disabled={!!selectedClient}
+                      disabled={!!selectedClient && selectedAction === "new"}
                     />
                   </div>
                   <div>
@@ -1030,7 +1067,7 @@ const Dashboard = () => {
                     className="flex-1 bg-flowmatic-teal hover:bg-flowmatic-teal/90"
                     disabled={!nuevoPresupuesto.nombre || !nuevoPresupuesto.cliente || !nuevoPresupuesto.destino || !nuevoPresupuesto.valor}
                   >
-                    💾 Guardar Presupuesto
+                    {selectedAction === "edit" ? "💾 Actualizar Presupuesto" : "💾 Guardar Presupuesto"}
                   </Button>
                   <Button
                     onClick={closeBudgetModal}
