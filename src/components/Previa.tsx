@@ -1245,9 +1245,28 @@ ${JSON.stringify(editedData, null, 2)}`;
       const storagePath = `users/${currentUser.uid}/clientes/${clienteSeleccionado}/documents/${nombreUnico}`;
       const storageRef = ref(storage, storagePath);
 
-      // Subir archivo a Firebase Storage
-      const snapshot = await uploadBytes(storageRef, archivoBlob);
-      console.log("Archivo subido exitosamente:", snapshot);
+      // Configurar metadata para evitar problemas de CORS
+      const metadata = {
+        contentType: tipo === "PDF" ? 'application/pdf' : 'text/html',
+        cacheControl: 'public, max-age=31536000',
+      };
+
+      // Subir archivo a Firebase Storage con manejo de errores específico
+      let snapshot;
+      try {
+        snapshot = await uploadBytes(storageRef, archivoBlob, metadata);
+        console.log("Archivo subido exitosamente:", snapshot);
+      } catch (uploadError) {
+        console.error("Error específico de subida:", uploadError);
+        
+        // Si es error de CORS, intentar subida sin metadata
+        if (uploadError.code === 'storage/unauthorized' || uploadError.message.includes('CORS')) {
+          console.log("Intentando subida sin metadata debido a CORS...");
+          snapshot = await uploadBytes(storageRef, archivoBlob);
+        } else {
+          throw uploadError;
+        }
+      }
 
       // Obtener URL de descarga
       const downloadURL = await getDownloadURL(storageRef);
@@ -1278,10 +1297,21 @@ ${JSON.stringify(editedData, null, 2)}`;
 
     } catch (error) {
       console.error("Error subiendo archivo:", error);
-      setErrorSubida("Error al guardar el archivo en la nube");
+      
+      // Manejo específico de errores de Firebase
+      let errorMessage = "Error al guardar el archivo en la nube";
+      if (error.code === 'storage/unauthorized') {
+        errorMessage = "Error de permisos: Verifica la configuración de CORS en Firebase Storage";
+      } else if (error.code === 'storage/retry-limit-exceeded') {
+        errorMessage = "Error de conexión: Intenta nuevamente más tarde";
+      } else if (error.message.includes('CORS')) {
+        errorMessage = "Error de CORS: El archivo se descargó localmente pero no se pudo subir a la nube";
+      }
+      
+      setErrorSubida(errorMessage);
       toast({
-        title: "❌ Error",
-        description: "Error al guardar el archivo en la nube. El archivo se descargó localmente.",
+        title: "❌ Error de subida",
+        description: `${errorMessage}. El archivo se descargó localmente.`,
         variant: "destructive",
       });
       setSubiendoArchivo(false);
@@ -1325,19 +1355,40 @@ ${JSON.stringify(editedData, null, 2)}`;
       styleElement.textContent = plantillaStyles;
       tempContainer.appendChild(styleElement);
 
-      // Reemplazar URLs de imágenes externas con un proxy CORS
+      // Reemplazar URLs de imágenes externas con proxies CORS más robustos
       const images = tempContainer.querySelectorAll('img');
-      for (const img of images) {
-        if (img.src && (img.src.includes('vinccihoteles.com') || img.src.includes('res.cloudinary.com'))) {
+      for (const imgElement of images) {
+        const img = imgElement as HTMLImageElement;
+        if (img.src && img.src.trim() !== '') {
           try {
-            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(img.src)}`;
-            img.src = proxyUrl;
-            console.log('Imagen reemplazada con proxy:', proxyUrl);
+            // Usar múltiples proxies CORS como fallback
+            const proxies = [
+              `https://corsproxy.io/?${encodeURIComponent(img.src)}`,
+              `https://api.allorigins.win/raw?url=${encodeURIComponent(img.src)}`,
+              `https://cors-anywhere.herokuapp.com/${img.src}`
+            ];
+            
+            // Intentar con el primer proxy
+            img.src = proxies[0];
+            console.log('Imagen reemplazada con proxy:', proxies[0]);
+            
+            // Configurar timeout para la imagen
+            img.onerror = () => {
+              console.warn('Primer proxy falló, intentando con segundo...');
+              img.src = proxies[1];
+              img.onerror = () => {
+                console.warn('Segundo proxy falló, usando imagen local...');
+                // Usar imagen local de Cloudinary como fallback definitivo
+                img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
+              };
+            };
           } catch (proxyError) {
-            console.warn('Error al aplicar proxy a imagen:', img.src, proxyError);
-            // Si falla el proxy, usar una imagen de placeholder
+            console.warn('Error crítico con proxies, usando imagen local:', proxyError);
             img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
           }
+        } else {
+          // Si la imagen no tiene src, usar placeholder
+          img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
         }
       }
 
@@ -1357,19 +1408,23 @@ ${JSON.stringify(editedData, null, 2)}`;
       tempContainer.style.zIndex = '9999';
       document.body.appendChild(tempContainer);
 
-      // Configuración optimizada para html2canvas con manejo de imágenes
+      // Configuración optimizada para html2canvas con manejo robusto de imágenes
       const canvas = await html2canvas(tempContainer, {
-        scale: 2,
+        scale: 1.5, // Reducir escala para mejor rendimiento
         useCORS: true, // Permitir CORS para imágenes con proxy
-        logging: true,
+        logging: false, // Desactivar logging para mejor rendimiento
         backgroundColor: '#ffffff',
-        allowTaint: true, // Permitir contenido "tainted" para imágenes externas
+        allowTaint: false, // Desactivar tainted canvas para mayor compatibilidad
         removeContainer: true,
         width: tempContainer.scrollWidth,
         height: tempContainer.scrollHeight,
         windowWidth: tempContainer.scrollWidth,
         windowHeight: tempContainer.scrollHeight,
-        imageTimeout: 10000, // 10 segundos de timeout para imágenes
+        imageTimeout: 15000, // 15 segundos de timeout para imágenes
+        ignoreElements: (element) => {
+          // Ignorar elementos problemáticos
+          return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+        },
         onclone: (clonedDoc, clonedElement) => {
           // Asegurar que los estilos se mantengan en el clon
           const style = document.createElement('style');
@@ -1386,15 +1441,29 @@ ${JSON.stringify(editedData, null, 2)}`;
             img {
               max-width: 100% !important;
               height: auto !important;
+              display: block !important;
             }
             /* Ocultar elementos de edición si existen */
             .flex.justify-between.items-center.mb-4,
             .space-y-2 input,
-            .flex.items-center.gap-2 button {
+            .flex.items-center.gap-2 button,
+            .mb-4.p-4.border.rounded-lg {
               display: none !important;
             }
+            /* Forzar carga de fuentes */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
           `;
           clonedDoc.head.appendChild(style);
+          
+          // Pre-cargar imágenes críticas
+          const criticalImages = clonedElement.querySelectorAll('img[src*="cloudinary"]');
+          criticalImages.forEach((img: Element) => {
+            const htmlImg = img as HTMLImageElement;
+            if (htmlImg.src) {
+              const preloadImg = new Image();
+              preloadImg.src = htmlImg.src;
+            }
+          });
         }
       });
 
