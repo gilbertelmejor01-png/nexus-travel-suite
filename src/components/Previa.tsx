@@ -1303,81 +1303,103 @@ ${JSON.stringify(editedData, null, 2)}`;
     setGeneratingPdf(true);
     
     try {
-      // Obtener el elemento HTML a convertir (desde la línea 2290 - Hero Section)
-      const element = document.getElementById('previa-content');
-      if (!element) {
-        throw new Error('No se encontró el contenido para generar el PDF');
+      // Obtener SOLO el contenido desde la Hero Section (línea 2391)
+      const heroSection = document.querySelector('.hero-section');
+      if (!heroSection) {
+        throw new Error('No se encontró la Hero Section para generar el PDF');
       }
 
-      // SOLUCIÓN AVANZADA: Usar un proxy para imágenes externas y mantener todas las imágenes
-      const clonedElement = element.cloneNode(true) as HTMLElement;
+      // Crear un contenedor temporal que solo incluya desde la Hero Section
+      const tempContainer = document.createElement('div');
+      tempContainer.className = 'previa-container';
       
+      // Clonar y agregar todos los elementos desde la Hero Section en adelante
+      let currentElement = heroSection;
+      while (currentElement) {
+        tempContainer.appendChild(currentElement.cloneNode(true));
+        currentElement = currentElement.nextElementSibling as HTMLElement;
+      }
+
+      // Aplicar los mismos estilos CSS de la plantilla
+      const styleElement = document.createElement('style');
+      styleElement.textContent = plantillaStyles;
+      tempContainer.appendChild(styleElement);
+
       // Reemplazar URLs de imágenes externas con un proxy CORS
-      const images = clonedElement.querySelectorAll('img');
+      const images = tempContainer.querySelectorAll('img');
       for (const img of images) {
-        if (img.src && img.src.includes('vinccihoteles.com')) {
-          // Usar un proxy CORS para imágenes externas
+        if (img.src && (img.src.includes('vinccihoteles.com') || img.src.includes('res.cloudinary.com'))) {
           try {
             const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(img.src)}`;
             img.src = proxyUrl;
             console.log('Imagen reemplazada con proxy:', proxyUrl);
           } catch (proxyError) {
             console.warn('Error al aplicar proxy a imagen:', img.src, proxyError);
-            // Si falla el proxy, usar una imagen de placeholder de Cloudinary
+            // Si falla el proxy, usar una imagen de placeholder
             img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
           }
         }
       }
 
-      // Aplicar estilos para impresión
-      clonedElement.style.width = '210mm';
-      clonedElement.style.minHeight = '297mm';
-      clonedElement.style.padding = '20mm';
-      clonedElement.style.background = 'white';
-      clonedElement.style.boxSizing = 'border-box';
+      // Aplicar estilos para impresión manteniendo el diseño original
+      tempContainer.style.width = '210mm';
+      tempContainer.style.minHeight = '297mm';
+      tempContainer.style.padding = '20mm';
+      tempContainer.style.background = 'white';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.margin = '0';
+      tempContainer.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
       
       // Agregar temporalmente al DOM
-      clonedElement.style.position = 'fixed';
-      clonedElement.style.top = '0';
-      clonedElement.style.left = '0';
-      clonedElement.style.zIndex = '9999';
-      document.body.appendChild(clonedElement);
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.top = '0';
+      tempContainer.style.left = '0';
+      tempContainer.style.zIndex = '9999';
+      document.body.appendChild(tempContainer);
 
       // Configuración optimizada para html2canvas con manejo de imágenes
-      const canvas = await html2canvas(clonedElement, {
+      const canvas = await html2canvas(tempContainer, {
         scale: 2,
         useCORS: true, // Permitir CORS para imágenes con proxy
         logging: true,
         backgroundColor: '#ffffff',
         allowTaint: true, // Permitir contenido "tainted" para imágenes externas
         removeContainer: true,
-        width: clonedElement.scrollWidth,
-        height: clonedElement.scrollHeight,
-        windowWidth: clonedElement.scrollWidth,
-        windowHeight: clonedElement.scrollHeight,
+        width: tempContainer.scrollWidth,
+        height: tempContainer.scrollHeight,
+        windowWidth: tempContainer.scrollWidth,
+        windowHeight: tempContainer.scrollHeight,
         imageTimeout: 10000, // 10 segundos de timeout para imágenes
         onclone: (clonedDoc, clonedElement) => {
           // Asegurar que los estilos se mantengan en el clon
           const style = document.createElement('style');
-          style.textContent = `
+          style.textContent = plantillaStyles + `
             .previa-container {
               width: 210mm !important;
               min-height: 297mm !important;
               padding: 20mm !important;
               background: white !important;
               box-sizing: border-box !important;
+              margin: 0 !important;
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
             }
             img {
               max-width: 100% !important;
               height: auto !important;
+            }
+            /* Ocultar elementos de edición si existen */
+            .flex.justify-between.items-center.mb-4,
+            .space-y-2 input,
+            .flex.items-center.gap-2 button {
+              display: none !important;
             }
           `;
           clonedDoc.head.appendChild(style);
         }
       });
 
-      // Remover el clon temporal
-      document.body.removeChild(clonedElement);
+      // Remover el contenedor temporal
+      document.body.removeChild(tempContainer);
 
       // Crear PDF con jsPDF
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -1436,27 +1458,44 @@ ${JSON.stringify(editedData, null, 2)}`;
           description: "Generando PDF sin imágenes debido a problemas técnicos...",
         });
 
-        const element = document.getElementById('previa-content');
-        if (!element) throw new Error('No se encontró el contenido');
+        // Usar el mismo método de captura desde Hero Section pero sin imágenes
+        const heroSection = document.querySelector('.hero-section');
+        if (!heroSection) throw new Error('No se encontró la Hero Section');
 
-        const clonedElement = element.cloneNode(true) as HTMLElement;
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'previa-container';
         
-        // Eliminar todas las imágenes problemáticas
-        const images = clonedElement.querySelectorAll('img');
-        images.forEach(img => img.remove());
+        // Clonar y agregar todos los elementos desde la Hero Section en adelante
+        let currentElement = heroSection;
+        while (currentElement) {
+          const clone = currentElement.cloneNode(true) as HTMLElement;
+          // Eliminar imágenes del clon
+          const images = clone.querySelectorAll('img');
+          images.forEach(img => img.remove());
+          tempContainer.appendChild(clone);
+          currentElement = currentElement.nextElementSibling as HTMLElement;
+        }
 
-        clonedElement.style.width = '210mm';
-        clonedElement.style.minHeight = '297mm';
-        clonedElement.style.padding = '20mm';
-        clonedElement.style.background = 'white';
-        clonedElement.style.boxSizing = 'border-box';
-        clonedElement.style.position = 'fixed';
-        clonedElement.style.top = '0';
-        clonedElement.style.left = '0';
-        clonedElement.style.zIndex = '9999';
-        document.body.appendChild(clonedElement);
+        // Aplicar estilos CSS
+        const styleElement = document.createElement('style');
+        styleElement.textContent = plantillaStyles;
+        tempContainer.appendChild(styleElement);
 
-        const canvas = await html2canvas(clonedElement, {
+        // Aplicar estilos para impresión
+        tempContainer.style.width = '210mm';
+        tempContainer.style.minHeight = '297mm';
+        tempContainer.style.padding = '20mm';
+        tempContainer.style.background = 'white';
+        tempContainer.style.boxSizing = 'border-box';
+        tempContainer.style.margin = '0';
+        tempContainer.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.top = '0';
+        tempContainer.style.left = '0';
+        tempContainer.style.zIndex = '9999';
+        document.body.appendChild(tempContainer);
+
+        const canvas = await html2canvas(tempContainer, {
           scale: 2,
           useCORS: false,
           logging: false,
@@ -1465,7 +1504,7 @@ ${JSON.stringify(editedData, null, 2)}`;
           removeContainer: true
         });
 
-        document.body.removeChild(clonedElement);
+        document.body.removeChild(tempContainer);
 
         const pdf = new jsPDF('p', 'mm', 'a4');
         const imgWidth = 210;
