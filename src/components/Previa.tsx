@@ -1355,32 +1355,36 @@ ${JSON.stringify(editedData, null, 2)}`;
       styleElement.textContent = plantillaStyles;
       tempContainer.appendChild(styleElement);
 
-      // Reemplazar URLs de imágenes externas con proxies CORS más robustos
+      // Reemplazar URLs de imágenes externas con proxies CORS mejorados
       const images = tempContainer.querySelectorAll('img');
       for (const imgElement of images) {
         const img = imgElement as HTMLImageElement;
         if (img.src && img.src.trim() !== '') {
           try {
-            // Usar múltiples proxies CORS como fallback
+            // Usar proxies CORS más confiables y actualizados
             const proxies = [
-              `https://corsproxy.io/?${encodeURIComponent(img.src)}`,
-              `https://api.allorigins.win/raw?url=${encodeURIComponent(img.src)}`,
-              `https://cors-anywhere.herokuapp.com/${img.src}`
+              `https://corsproxy.org/?${encodeURIComponent(img.src)}`,
+              `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(img.src)}`,
+              `https://cors-anywhere.herokuapp.com/${img.src}`,
+              `https://corsproxy.io/?${encodeURIComponent(img.src)}`
             ];
             
             // Intentar con el primer proxy
             img.src = proxies[0];
             console.log('Imagen reemplazada con proxy:', proxies[0]);
             
-            // Configurar timeout para la imagen
+            // Configurar timeout para la imagen con mejor manejo de errores
+            let proxyAttempt = 0;
             img.onerror = () => {
-              console.warn('Primer proxy falló, intentando con segundo...');
-              img.src = proxies[1];
-              img.onerror = () => {
-                console.warn('Segundo proxy falló, usando imagen local...');
+              proxyAttempt++;
+              if (proxyAttempt < proxies.length) {
+                console.warn(`Proxy ${proxyAttempt} falló, intentando con siguiente...`);
+                img.src = proxies[proxyAttempt];
+              } else {
+                console.warn('Todos los proxies fallaron, usando imagen local...');
                 // Usar imagen local de Cloudinary como fallback definitivo
                 img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
-              };
+              }
             };
           } catch (proxyError) {
             console.warn('Error crítico con proxies, usando imagen local:', proxyError);
@@ -1510,11 +1514,17 @@ ${JSON.stringify(editedData, null, 2)}`;
         description: "El PDF se ha generado correctamente con toda la información e imágenes",
       });
 
-      // Intentar subir a Firebase Storage (pero no bloquear si falla)
+      // Intentar subir a Firebase Storage (con manejo mejorado de errores)
       try {
         await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
       } catch (uploadError) {
         console.warn("Error subiendo a Firebase, pero el PDF se descargó localmente:", uploadError);
+        // Mostrar mensaje informativo pero no crítico
+        toast({
+          title: "⚠️ PDF descargado localmente",
+          description: "El PDF se descargó correctamente pero no se pudo subir a la nube. Puedes subirlo manualmente más tarde.",
+          variant: "default",
+        });
       }
 
     } catch (error) {
@@ -1603,6 +1613,19 @@ ${JSON.stringify(editedData, null, 2)}`;
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
 
+        // Intentar subir a Firebase Storage (con manejo mejorado de errores)
+        try {
+          await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
+        } catch (uploadError) {
+          console.warn("Error subiendo a Firebase, pero el PDF se descargó localmente:", uploadError);
+          // Mostrar mensaje informativo pero no crítico
+          toast({
+            title: "⚠️ PDF descargado localmente",
+            description: "El PDF se descargó correctamente pero no se pudo subir a la nube. Puedes subirlo manualmente más tarde.",
+            variant: "default",
+          });
+        }
+
         toast({
           title: "✅ PDF generado (sin imágenes)",
           description: "El PDF se generó sin imágenes debido a problemas técnicos",
@@ -1645,8 +1668,18 @@ ${JSON.stringify(editedData, null, 2)}`;
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
-      await subirArchivoYRegistrar(htmlBlob, `presupuesto_${new Date().getTime()}.html`, "HTML");
+      // Subir a Firebase Storage y registrar en Firestore (con manejo mejorado de errores)
+      try {
+        await subirArchivoYRegistrar(htmlBlob, `presupuesto_${new Date().getTime()}.html`, "HTML");
+      } catch (uploadError) {
+        console.warn("Error subiendo a Firebase, pero el HTML se descargó localmente:", uploadError);
+        // Mostrar mensaje informativo pero no crítico
+        toast({
+          title: "⚠️ HTML descargado localmente",
+          description: "El HTML se descargó correctamente pero no se pudo subir a la nube. Puedes subirlo manualmente más tarde.",
+          variant: "default",
+        });
+      }
 
     } catch (error) {
       console.error("Error generando HTML:", error);
