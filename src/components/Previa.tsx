@@ -4,6 +4,8 @@ import "react-quill/dist/quill.snow.css";
 import { doc, updateDoc, getDoc, collection, getDocs, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, auth, storage } from "@/lib/firebase";
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { useAuth } from "@/context/AuthContext";
 import {
   DragDropContext,
@@ -1301,12 +1303,107 @@ ${JSON.stringify(editedData, null, 2)}`;
     setGeneratingPdf(true);
     
     try {
-      // Aquí iría la lógica actual de generación de PDF
-      // Por ahora, simulamos la generación de un PDF
-      const htmlContent = document.getElementById('previa-content')?.innerHTML || '';
-      const pdfBlob = new Blob([htmlContent], { type: 'application/pdf' });
+      // Obtener el elemento HTML a convertir (desde la línea 2290 - Hero Section)
+      const element = document.getElementById('previa-content');
+      if (!element) {
+        throw new Error('No se encontró el contenido para generar el PDF');
+      }
+
+      // SOLUCIÓN AVANZADA: Usar un proxy para imágenes externas y mantener todas las imágenes
+      const clonedElement = element.cloneNode(true) as HTMLElement;
       
-      // Descargar localmente (funcionalidad existente)
+      // Reemplazar URLs de imágenes externas con un proxy CORS
+      const images = clonedElement.querySelectorAll('img');
+      for (const img of images) {
+        if (img.src && img.src.includes('vinccihoteles.com')) {
+          // Usar un proxy CORS para imágenes externas
+          try {
+            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(img.src)}`;
+            img.src = proxyUrl;
+            console.log('Imagen reemplazada con proxy:', proxyUrl);
+          } catch (proxyError) {
+            console.warn('Error al aplicar proxy a imagen:', img.src, proxyError);
+            // Si falla el proxy, usar una imagen de placeholder de Cloudinary
+            img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
+          }
+        }
+      }
+
+      // Aplicar estilos para impresión
+      clonedElement.style.width = '210mm';
+      clonedElement.style.minHeight = '297mm';
+      clonedElement.style.padding = '20mm';
+      clonedElement.style.background = 'white';
+      clonedElement.style.boxSizing = 'border-box';
+      
+      // Agregar temporalmente al DOM
+      clonedElement.style.position = 'fixed';
+      clonedElement.style.top = '0';
+      clonedElement.style.left = '0';
+      clonedElement.style.zIndex = '9999';
+      document.body.appendChild(clonedElement);
+
+      // Configuración optimizada para html2canvas con manejo de imágenes
+      const canvas = await html2canvas(clonedElement, {
+        scale: 2,
+        useCORS: true, // Permitir CORS para imágenes con proxy
+        logging: true,
+        backgroundColor: '#ffffff',
+        allowTaint: true, // Permitir contenido "tainted" para imágenes externas
+        removeContainer: true,
+        width: clonedElement.scrollWidth,
+        height: clonedElement.scrollHeight,
+        windowWidth: clonedElement.scrollWidth,
+        windowHeight: clonedElement.scrollHeight,
+        imageTimeout: 10000, // 10 segundos de timeout para imágenes
+        onclone: (clonedDoc, clonedElement) => {
+          // Asegurar que los estilos se mantengan en el clon
+          const style = document.createElement('style');
+          style.textContent = `
+            .previa-container {
+              width: 210mm !important;
+              min-height: 297mm !important;
+              padding: 20mm !important;
+              background: white !important;
+              box-sizing: border-box !important;
+            }
+            img {
+              max-width: 100% !important;
+              height: auto !important;
+            }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
+      });
+
+      // Remover el clon temporal
+      document.body.removeChild(clonedElement);
+
+      // Crear PDF con jsPDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Agregar la imagen al PDF
+      pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Agregar páginas adicionales si el contenido es muy largo
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Generar el Blob del PDF
+      const pdfBlob = pdf.output('blob');
+
+      // Descargar localmente
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -1316,16 +1413,99 @@ ${JSON.stringify(editedData, null, 2)}`;
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
-      await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
+      // Mostrar mensaje de éxito
+      toast({
+        title: "✅ PDF generado con imágenes",
+        description: "El PDF se ha generado correctamente con toda la información e imágenes",
+      });
+
+      // Intentar subir a Firebase Storage (pero no bloquear si falla)
+      try {
+        await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
+      } catch (uploadError) {
+        console.warn("Error subiendo a Firebase, pero el PDF se descargó localmente:", uploadError);
+      }
 
     } catch (error) {
       console.error("Error generando PDF:", error);
-      toast({
-        title: "❌ Error",
-        description: "Error al generar el PDF",
-        variant: "destructive",
-      });
+      
+      // SOLUCIÓN DE RESPUESTA: Si falla con imágenes, intentar sin imágenes
+      try {
+        toast({
+          title: "⚠️ Reintentando sin imágenes",
+          description: "Generando PDF sin imágenes debido a problemas técnicos...",
+        });
+
+        const element = document.getElementById('previa-content');
+        if (!element) throw new Error('No se encontró el contenido');
+
+        const clonedElement = element.cloneNode(true) as HTMLElement;
+        
+        // Eliminar todas las imágenes problemáticas
+        const images = clonedElement.querySelectorAll('img');
+        images.forEach(img => img.remove());
+
+        clonedElement.style.width = '210mm';
+        clonedElement.style.minHeight = '297mm';
+        clonedElement.style.padding = '20mm';
+        clonedElement.style.background = 'white';
+        clonedElement.style.boxSizing = 'border-box';
+        clonedElement.style.position = 'fixed';
+        clonedElement.style.top = '0';
+        clonedElement.style.left = '0';
+        clonedElement.style.zIndex = '9999';
+        document.body.appendChild(clonedElement);
+
+        const canvas = await html2canvas(clonedElement, {
+          scale: 2,
+          useCORS: false,
+          logging: false,
+          backgroundColor: '#ffffff',
+          allowTaint: false,
+          removeContainer: true
+        });
+
+        document.body.removeChild(clonedElement);
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
+        const url = window.URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `presupuesto_${new Date().getTime()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: "✅ PDF generado (sin imágenes)",
+          description: "El PDF se generó sin imágenes debido a problemas técnicos",
+        });
+      } catch (fallbackError) {
+        toast({
+          title: "❌ Error crítico",
+          description: "No se pudo generar el PDF. Contacta al soporte técnico.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setGeneratingPdf(false);
     }
@@ -2027,7 +2207,7 @@ ${plantillaStyles}
   }
 
   return (
-    <div className="previa-container">
+    <div className="previa-container" id="previa-content">
       <style>{plantillaStyles}</style>
 
       {/* Botones de edición/guardar en la parte superior */}
