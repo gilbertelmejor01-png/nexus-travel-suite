@@ -445,9 +445,28 @@ ${JSON.stringify(editedData, null, 2)}`;
       const storagePath = `users/${currentUser.uid}/clientes/${clienteSeleccionado}/documents/${nombreUnico}`;
       const storageRef = ref(storage, storagePath);
 
-      // Subir archivo a Firebase Storage
-      const snapshot = await uploadBytes(storageRef, archivoBlob);
-      console.log("Archivo subido exitosamente:", snapshot);
+      // Configurar metadata para evitar problemas de CORS
+      const metadata = {
+        contentType: tipo === "PDF" ? 'application/pdf' : 'text/html',
+        cacheControl: 'public, max-age=31536000',
+      };
+
+      // Subir archivo a Firebase Storage con manejo de errores específico
+      let snapshot;
+      try {
+        snapshot = await uploadBytes(storageRef, archivoBlob, metadata);
+        console.log("Archivo subido exitosamente:", snapshot);
+      } catch (uploadError) {
+        console.error("Error específico de subida:", uploadError);
+        
+        // Si es error de CORS, intentar subida sin metadata
+        if (uploadError.code === 'storage/unauthorized' || uploadError.message.includes('CORS')) {
+          console.log("Intentando subida sin metadata debido a CORS...");
+          snapshot = await uploadBytes(storageRef, archivoBlob);
+        } else {
+          throw uploadError;
+        }
+      }
 
       // Obtener URL de descarga
       const downloadURL = await getDownloadURL(storageRef);
@@ -478,10 +497,21 @@ ${JSON.stringify(editedData, null, 2)}`;
 
     } catch (error) {
       console.error("Error subiendo archivo:", error);
-      setErrorSubida("Error al guardar el archivo en la nube");
+      
+      // Manejo específico de errores de Firebase
+      let errorMessage = "Error al guardar el archivo en la nube";
+      if (error.code === 'storage/unauthorized') {
+        errorMessage = "Error de permisos: Verifica la configuración de CORS en Firebase Storage";
+      } else if (error.code === 'storage/retry-limit-exceeded') {
+        errorMessage = "Error de conexión: Intenta nuevamente más tarde";
+      } else if (error.message.includes('CORS')) {
+        errorMessage = "Error de CORS: El archivo se descargó localmente pero no se pudo subir a la nube";
+      }
+      
+      setErrorSubida(errorMessage);
       toast({
-        title: "❌ Error",
-        description: "Error al guardar el archivo en la nube. El archivo se descargó localmente.",
+        title: "❌ Error de subida",
+        description: `${errorMessage}. El archivo se descargó localmente.`,
         variant: "destructive",
       });
       setSubiendoArchivo(false);
@@ -503,12 +533,182 @@ ${JSON.stringify(editedData, null, 2)}`;
     setGeneratingPdf(true);
     
     try {
-      // Aquí iría la lógica actual de generación de PDF
-      // Por ahora, simulamos la generación de un PDF
-      const htmlContent = document.getElementById('previa-content')?.innerHTML || '';
-      const pdfBlob = new Blob([htmlContent], { type: 'application/pdf' });
+      // Obtener SOLO el contenido desde la Hero Section
+      const heroSection = document.querySelector('.hero-header');
+      if (!heroSection) {
+        throw new Error('No se encontró la Hero Section para generar el PDF');
+      }
+
+      // Crear un contenedor temporal que solo incluya desde la Hero Section en adelante
+      const tempContainer = document.createElement('div');
+      tempContainer.className = 'previa-container';
       
-      // Descargar localmente (funcionalidad existente)
+      // Clonar y agregar todos los elementos desde la Hero Section en adelante
+      let currentElement = heroSection;
+      while (currentElement) {
+        tempContainer.appendChild(currentElement.cloneNode(true));
+        currentElement = currentElement.nextElementSibling as HTMLElement;
+      }
+
+      // Aplicar los mismos estilos CSS de la plantilla
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        /* Estilos básicos para PDF */
+        .doc { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: white; color: #333; line-height: 1.7; }
+        .hero-header { background: linear-gradient(135deg, #d4a574 0%, #8b7355 100%); min-height: 220px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; position: relative; padding: 16px 20px 20px; }
+        .main-content { max-width: 2000px; margin: 0 auto; padding: 1.2rem 0.8rem; }
+        .section { margin-bottom: 3.2rem; }
+        .section-title { font-size: 1.35rem; color: #2c3e50; font-weight: 500; margin-bottom: 1.6rem; text-align: center; position: relative; padding-bottom: 0.9rem; }
+        .itineraire-table { border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin: 1.6rem 0; background: white; }
+        .services-table { border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin: 2rem 0; }
+        .prix-section { text-align: center; padding: 2.2rem 2rem; background: #f8f9fa; margin: 2.4rem 0; border-radius: 6px; }
+        .hotels-section { margin: 2.6rem 0; }
+        .footer-section { background: #d4a574; color: white; padding: 2.4rem 2rem; margin-top: 3rem; text-align: center; }
+      `;
+      tempContainer.appendChild(styleElement);
+
+      // Reemplazar URLs de imágenes externas con proxies CORS más robustos
+      const images = tempContainer.querySelectorAll('img');
+      for (const imgElement of images) {
+        const img = imgElement as HTMLImageElement;
+        if (img.src && img.src.trim() !== '') {
+          try {
+            // Usar múltiples proxies CORS como fallback
+            const proxies = [
+              `https://corsproxy.io/?${encodeURIComponent(img.src)}`,
+              `https://api.allorigins.win/raw?url=${encodeURIComponent(img.src)}`,
+              `https://cors-anywhere.herokuapp.com/${img.src}`
+            ];
+            
+            // Intentar con el primer proxy
+            img.src = proxies[0];
+            console.log('Imagen reemplazada con proxy:', proxies[0]);
+            
+            // Configurar timeout para la imagen
+            img.onerror = () => {
+              console.warn('Primer proxy falló, intentando con segundo...');
+              img.src = proxies[1];
+              img.onerror = () => {
+                console.warn('Segundo proxy falló, usando imagen local...');
+                // Usar imagen local de Cloudinary como fallback definitivo
+                img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
+              };
+            };
+          } catch (proxyError) {
+            console.warn('Error crítico con proxies, usando imagen local:', proxyError);
+            img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
+          }
+        } else {
+          // Si la imagen no tiene src, usar placeholder
+          img.src = 'https://res.cloudinary.com/dckcnx0sz/image/upload/v1752806775/Captura_de_pantalla_de_2025-07-17_21-42-28_wu28bg.png';
+        }
+      }
+
+      // Aplicar estilos para impresión manteniendo el diseño original
+      tempContainer.style.width = '210mm';
+      tempContainer.style.minHeight = '297mm';
+      tempContainer.style.padding = '20mm';
+      tempContainer.style.background = 'white';
+      tempContainer.style.boxSizing = 'border-box';
+      tempContainer.style.margin = '0';
+      tempContainer.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      
+      // Agregar temporalmente al DOM
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.top = '0';
+      tempContainer.style.left = '0';
+      tempContainer.style.zIndex = '9999';
+      document.body.appendChild(tempContainer);
+
+      // Importar html2canvas y jsPDF dinámicamente
+      const { default: html2canvas } = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
+
+      // Configuración optimizada para html2canvas con manejo robusto de imágenes
+      const canvas = await html2canvas(tempContainer, {
+        scale: 1.5, // Reducir escala para mejor rendimiento
+        useCORS: true, // Permitir CORS para imágenes con proxy
+        logging: false, // Desactivar logging para mejor rendimiento
+        backgroundColor: '#ffffff',
+        allowTaint: false, // Desactivar tainted canvas para mayor compatibilidad
+        removeContainer: true,
+        width: tempContainer.scrollWidth,
+        height: tempContainer.scrollHeight,
+        windowWidth: tempContainer.scrollWidth,
+        windowHeight: tempContainer.scrollHeight,
+        imageTimeout: 15000, // 15 segundos de timeout para imágenes
+        ignoreElements: (element) => {
+          // Ignorar elementos problemáticos
+          return element.tagName === 'SCRIPT' || element.tagName === 'STYLE';
+        },
+        onclone: (clonedDoc, clonedElement) => {
+          // Asegurar que los estilos se mantengan en el clon
+          const style = document.createElement('style');
+          style.textContent = `
+            .previa-container {
+              width: 210mm !important;
+              min-height: 297mm !important;
+              padding: 20mm !important;
+              background: white !important;
+              box-sizing: border-box !important;
+              margin: 0 !important;
+              font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            }
+            img {
+              max-width: 100% !important;
+              height: auto !important;
+              display: block !important;
+            }
+            /* Ocultar elementos de edición si existen */
+            .flex.justify-between.items-center.mb-4,
+            .space-y-2 input,
+            .flex.items-center.gap-2 button,
+            .mb-4.p-4.border.rounded-lg {
+              display: none !important;
+            }
+            /* Forzar carga de fuentes */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+          `;
+          clonedDoc.head.appendChild(style);
+          
+          // Pre-cargar imágenes críticas
+          const criticalImages = clonedElement.querySelectorAll('img[src*="cloudinary"]');
+          criticalImages.forEach((img: Element) => {
+            const htmlImg = img as HTMLImageElement;
+            if (htmlImg.src) {
+              const preloadImg = new Image();
+              preloadImg.src = htmlImg.src;
+            }
+          });
+        }
+      });
+
+      // Remover el contenedor temporal
+      document.body.removeChild(tempContainer);
+
+      // Crear PDF con jsPDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Agregar primera página
+      pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Agregar páginas adicionales si es necesario
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Generar blob y descargar
+      const pdfBlob = pdf.output('blob');
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -518,16 +718,114 @@ ${JSON.stringify(editedData, null, 2)}`;
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
+      // Subir a Firebase Storage y registrar en Firestore
       await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
 
     } catch (error) {
       console.error("Error generando PDF:", error);
-      toast({
-        title: "❌ Error",
-        description: "Error al generar el PDF",
-        variant: "destructive",
-      });
+      
+      // Intentar método de fallback sin imágenes
+      try {
+        console.log("Intentando método de fallback sin imágenes...");
+        
+        // Usar el mismo método de captura desde Hero Section pero sin imágenes
+        const heroSection = document.querySelector('.hero-header');
+        if (!heroSection) throw new Error('No se encontró la Hero Section');
+
+        const tempContainer = document.createElement('div');
+        tempContainer.className = 'previa-container';
+        
+        // Clonar y agregar todos los elementos desde la Hero Section en adelante
+        let currentElement = heroSection;
+        while (currentElement) {
+          const clone = currentElement.cloneNode(true) as HTMLElement;
+          // Eliminar imágenes del clon
+          const images = clone.querySelectorAll('img');
+          images.forEach(img => img.remove());
+          tempContainer.appendChild(clone);
+          currentElement = currentElement.nextElementSibling as HTMLElement;
+        }
+
+        // Aplicar estilos CSS
+        const styleElement = document.createElement('style');
+        styleElement.textContent = `
+          .doc { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: white; color: #333; line-height: 1.7; }
+          .hero-header { background: linear-gradient(135deg, #d4a574 0%, #8b7355 100%); min-height: 220px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; position: relative; padding: 16px 20px 20px; }
+          .main-content { max-width: 2000px; margin: 0 auto; padding: 1.2rem 0.8rem; }
+        `;
+        tempContainer.appendChild(styleElement);
+
+        // Aplicar estilos para impresión
+        tempContainer.style.width = '210mm';
+        tempContainer.style.minHeight = '297mm';
+        tempContainer.style.padding = '20mm';
+        tempContainer.style.background = 'white';
+        tempContainer.style.boxSizing = 'border-box';
+        tempContainer.style.margin = '0';
+        tempContainer.style.fontFamily = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        tempContainer.style.position = 'fixed';
+        tempContainer.style.top = '0';
+        tempContainer.style.left = '0';
+        tempContainer.style.zIndex = '9999';
+        document.body.appendChild(tempContainer);
+
+        const { default: html2canvas } = await import('html2canvas');
+        const { default: jsPDF } = await import('jspdf');
+
+        const canvas = await html2canvas(tempContainer, {
+          scale: 2,
+          useCORS: false,
+          logging: false,
+          backgroundColor: '#ffffff',
+          allowTaint: false,
+          removeContainer: true
+        });
+
+        document.body.removeChild(tempContainer);
+
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+        
+        // Agregar páginas adicionales si es necesario
+        while (heightLeft >= pageHeight) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(canvas, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const pdfBlob = pdf.output('blob');
+        const url = window.URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `presupuesto_${new Date().getTime()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        await subirArchivoYRegistrar(pdfBlob, `presupuesto_${new Date().getTime()}.pdf`, "PDF");
+        
+        toast({
+          title: "⚠️ PDF generado sin imágenes",
+          description: "El PDF se generó sin imágenes debido a problemas de carga",
+        });
+
+      } catch (fallbackError) {
+        console.error("Error en método de fallback:", fallbackError);
+        toast({
+          title: "❌ Error crítico",
+          description: "No se pudo generar el PDF. Intenta nuevamente.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setGeneratingPdf(false);
     }
@@ -545,11 +843,53 @@ ${JSON.stringify(editedData, null, 2)}`;
     }
 
     try {
-      // Aquí iría la lógica actual de generación de HTML
-      const htmlContent = document.getElementById('previa-content')?.innerHTML || '';
+      // Obtener SOLO el contenido desde la Hero Section (igual que en PDF)
+      const heroSection = document.querySelector('.hero-header');
+      if (!heroSection) {
+        throw new Error('No se encontró la Hero Section para generar el HTML');
+      }
+
+      // Crear un contenedor temporal que solo incluya desde la Hero Section en adelante
+      const tempContainer = document.createElement('div');
+      tempContainer.className = 'previa-container';
+      
+      // Clonar y agregar todos los elementos desde la Hero Section en adelante
+      let currentElement = heroSection;
+      while (currentElement) {
+        tempContainer.appendChild(currentElement.cloneNode(true));
+        currentElement = currentElement.nextElementSibling as HTMLElement;
+      }
+
+      // Aplicar estilos CSS para HTML
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        /* Estilos básicos para HTML */
+        .doc { font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; background: white; color: #333; line-height: 1.7; }
+        .hero-header { background: linear-gradient(135deg, #d4a574 0%, #8b7355 100%); min-height: 220px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; position: relative; padding: 16px 20px 20px; }
+        .main-content { max-width: 2000px; margin: 0 auto; padding: 1.2rem 0.8rem; }
+        .section { margin-bottom: 3.2rem; }
+        .section-title { font-size: 1.35rem; color: #2c3e50; font-weight: 500; margin-bottom: 1.6rem; text-align: center; position: relative; padding-bottom: 0.9rem; }
+        .itineraire-table { border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin: 1.6rem 0; background: white; }
+        .services-table { border: 1px solid #e0e0e0; border-radius: 6px; overflow: hidden; margin: 2rem 0; }
+        .prix-section { text-align: center; padding: 2.2rem 2rem; background: #f8f9fa; margin: 2.4rem 0; border-radius: 6px; }
+        .hotels-section { margin: 2.6rem 0; }
+        .footer-section { background: #d4a574; color: white; padding: 2.4rem 2rem; margin-top: 3rem; text-align: center; }
+        
+        /* Ocultar elementos de edición */
+        .flex.justify-between.items-center.mb-4,
+        .space-y-2 input,
+        .flex.items-center.gap-2 button,
+        .mb-4.p-4.border.rounded-lg {
+          display: none !important;
+        }
+      `;
+      tempContainer.appendChild(styleElement);
+
+      // Obtener el HTML del contenedor temporal
+      const htmlContent = tempContainer.innerHTML;
       const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
       
-      // Descargar localmente (funcionalidad existente)
+      // Descargar localmente
       const url = window.URL.createObjectURL(htmlBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -559,7 +899,7 @@ ${JSON.stringify(editedData, null, 2)}`;
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      // Subir a Firebase Storage y registrar en Firestore (nueva funcionalidad)
+      // Subir a Firebase Storage y registrar en Firestore
       await subirArchivoYRegistrar(htmlBlob, `presupuesto_${new Date().getTime()}.html`, "HTML");
 
     } catch (error) {
@@ -1719,7 +2059,7 @@ ${JSON.stringify(editedData, null, 2)}`;
   }
 
   return (
-    <div className="doc">
+    <div className="doc" id="previa-content">
       {/* Botones de edición/guardar en la parte superior */}
       <div className="flex justify-between items-center mb-4 p-4 bg-gray-50 rounded-lg">
         <div>
